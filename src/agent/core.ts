@@ -5,7 +5,8 @@ import { SYSTEM, userPrompt } from "./prompts.js";
 
 export type Decision = {
   action: "allocate" | "hold";
-  amount_eur: number;
+  amount: number;
+  currency: string;
   protocol: "aave" | "compound" | null;
   reason: string;
 };

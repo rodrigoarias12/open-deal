@@ -6,15 +6,17 @@ Policy: never move cash needed within 30 days. Only allocate what exceeds 1.5x m
 Respond ONLY with valid JSON, no prose, no markdown, no code fences.`;
 
 export function userPrompt(state: CashState): string {
-  return `Cash state:
-- idle: €${state.cash_idle_eur}
-- pending invoices (expected): €${state.pending_invoices_eur}
-- monthly burn: €${state.monthly_burn_eur}
+  const c = state.currency;
+  return `Cash state (amounts in ${c}):
+- idle: ${state.cash_idle.toLocaleString()} ${c}
+- pending invoices (expected): ${state.pending_invoices.toLocaleString()} ${c}
+- monthly burn: ${state.monthly_burn.toLocaleString()} ${c}
 
 Decide. Return JSON with this exact shape:
 {
   "action": "allocate" | "hold",
-  "amount_eur": number,
+  "amount": number,
+  "currency": "${c}",
   "protocol": "aave" | "compound" | null,
   "reason": "one short sentence"
 }`;

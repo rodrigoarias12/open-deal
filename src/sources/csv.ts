@@ -21,9 +21,10 @@ export class CsvSource implements AccountingSource {
     };
 
     return {
-      cash_idle_eur: get("cash_idle"),
-      pending_invoices_eur: get("pending_invoices"),
-      monthly_burn_eur: get("monthly_burn"),
+      currency: "EUR",
+      cash_idle: get("cash_idle"),
+      pending_invoices: get("pending_invoices"),
+      monthly_burn: get("monthly_burn"),
     };
   }
 }

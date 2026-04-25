@@ -1,7 +1,8 @@
 export type CashState = {
-  cash_idle_eur: number;
-  pending_invoices_eur: number;
-  monthly_burn_eur: number;
+  currency: string;
+  cash_idle: number;
+  pending_invoices: number;
+  monthly_burn: number;
 };
 
 export interface AccountingSource {

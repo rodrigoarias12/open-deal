@@ -69,7 +69,6 @@ type OdooAccount = {
   code: string;
   name: string;
   account_type: string;
-  current_balance?: number;
 };
 
 type OdooInvoice = {
@@ -87,29 +86,44 @@ type OdooMoveLine = {
   credit: number;
 };
 
+type OdooCompany = {
+  id: number;
+  name: string;
+  currency_id: [number, string];
+};
+
 export class OdooSource implements AccountingSource {
   readonly name = "odoo";
 
   constructor(private readonly client: OdooClient) {}
+
+  private async companyCurrency(): Promise<string> {
+    const companies = await this.client.call<OdooCompany[]>(
+      "res.company",
+      "search_read",
+      [[]],
+      { fields: ["id", "name", "currency_id"], limit: 1 },
+    );
+    return companies[0]?.currency_id?.[1] ?? "EUR";
+  }
 
   private async sumCashIdle(): Promise<number> {
     const accounts = await this.client.call<OdooAccount[]>(
       "account.account",
       "search_read",
       [[["account_type", "=", "asset_cash"]]],
-      { fields: ["id", "code", "name", "current_balance"], limit: 100 },
+      { fields: ["id", "code", "name"], limit: 100 },
     );
     if (accounts.length === 0) return 0;
-    // If current_balance is available, use it. Otherwise aggregate move lines.
-    if (accounts.every((a) => typeof a.current_balance === "number")) {
-      return accounts.reduce((s, a) => s + (a.current_balance ?? 0), 0);
-    }
     const ids = accounts.map((a) => a.id);
     const lines = await this.client.call<OdooMoveLine[]>(
       "account.move.line",
       "search_read",
-      [[["account_id", "in", ids]]],
-      { fields: ["debit", "credit"], limit: 10000 },
+      [[
+        ["account_id", "in", ids],
+        ["parent_state", "=", "posted"],
+      ]],
+      { fields: ["debit", "credit"], limit: 50000 },
     );
     return lines.reduce((s, l) => s + l.debit - l.credit, 0);
   }
@@ -123,7 +137,7 @@ export class OdooSource implements AccountingSource {
         ["payment_state", "in", ["not_paid", "partial"]],
         ["state", "=", "posted"],
       ]],
-      { fields: ["id", "name", "amount_residual_signed", "move_type", "payment_state"], limit: 500 },
+      { fields: ["id", "name", "amount_residual_signed", "move_type", "payment_state"], limit: 1000 },
     );
     return invoices.reduce((s, i) => s + Math.abs(i.amount_residual_signed || 0), 0);
   }
@@ -141,21 +155,23 @@ export class OdooSource implements AccountingSource {
         ["date", "<=", end],
         ["parent_state", "=", "posted"],
       ]],
-      { fields: ["debit", "credit"], limit: 10000 },
+      { fields: ["debit", "credit"], limit: 50000 },
     );
     return expenseLines.reduce((s, l) => s + l.debit - l.credit, 0);
   }
 
   async fetch(): Promise<CashState> {
-    const [cash, pending, burn] = await Promise.all([
+    const [currency, cash, pending, burn] = await Promise.all([
+      this.companyCurrency().catch(() => "EUR"),
       this.sumCashIdle().catch(() => 0),
       this.sumPendingInvoices().catch(() => 0),
       this.monthlyBurn().catch(() => 0),
     ]);
     return {
-      cash_idle_eur: Math.round(cash),
-      pending_invoices_eur: Math.round(pending),
-      monthly_burn_eur: Math.round(burn),
+      currency,
+      cash_idle: Math.round(cash),
+      pending_invoices: Math.round(pending),
+      monthly_burn: Math.round(burn),
     };
   }
 }
