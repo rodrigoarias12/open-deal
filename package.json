@@ -21,6 +21,7 @@
   "dependencies": {
     "@anthropic-ai/bedrock-sdk": "^0.29.0",
     "@anthropic-ai/sdk": "^0.91.1",
+    "@keeperhub/wallet": "^0.1.7",
     "dotenv": "^17.4.2",
     "ethers": "^6.16.0"
   }

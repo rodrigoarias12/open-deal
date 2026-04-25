@@ -1,5 +1,6 @@
 import type { TransactionReceipt, Wallet } from "ethers";
 import { CHAIN, UNISWAP, requireEnv } from "../config.js";
+import { x402fetch } from "../payments/keeperhub.js";
 
 export type TradeType = "EXACT_INPUT" | "EXACT_OUTPUT";
 
@@ -39,7 +40,7 @@ export async function getQuote(params: QuoteParams): Promise<Quote> {
   let lastErr = "";
   let data: any = null;
   for (let attempt = 1; attempt <= 4; attempt++) {
-    const res = await fetch(`${UNISWAP.tradingApi}/quote`, {
+    const res = await x402fetch(`${UNISWAP.tradingApi}/quote`, {
       method: "POST",
       headers: { "x-api-key": apiKey, "content-type": "application/json" },
       body: JSON.stringify(body),
@@ -114,7 +115,7 @@ export async function executeSwap(quote: Quote, wallet: Wallet): Promise<SwapRes
     );
   }
 
-  const res = await fetch(`${UNISWAP.tradingApi}/swap`, {
+  const res = await x402fetch(`${UNISWAP.tradingApi}/swap`, {
     method: "POST",
     headers: { "x-api-key": apiKey, "content-type": "application/json" },
     body: JSON.stringify(body),
