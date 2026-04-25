@@ -1,5 +1,5 @@
 import { JsonRpcProvider } from "ethers";
-import { MAINNET } from "../config.js";
+import { MAINNET } from "../config";
 
 let provider: JsonRpcProvider | null = null;
 

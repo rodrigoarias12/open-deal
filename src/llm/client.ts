@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { AnthropicBedrock } from "@anthropic-ai/bedrock-sdk";
-import { BEDROCK_MODEL, MODEL, llmProvider, requireEnv } from "../config.js";
+import { BEDROCK_MODEL, MODEL, llmProvider, requireEnv } from "../config";
 
 export interface LlmAskParams {
   system: string;

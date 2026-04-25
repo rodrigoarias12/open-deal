@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { getTextRecords, lookupAddress, resolveName } from "../src/ens/resolver.js";
+import { getTextRecords, lookupAddress, resolveName } from "../src/ens/resolver";
 
 async function main() {
   const name = process.argv[2] ?? "vitalik.eth";

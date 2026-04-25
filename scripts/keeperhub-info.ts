@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { getInfo } from "../src/payments/keeperhub.js";
+import { getInfo } from "../src/payments/keeperhub";
 
 async function main() {
   const info = await getInfo();

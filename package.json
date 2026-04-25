@@ -6,6 +6,10 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "tsx src/index.ts",
+    "tick": "tsx src/index.ts",
+    "web": "next dev -p 3000",
+    "web:build": "next build",
+    "web:start": "next start -p 3000",
     "build": "tsc",
     "typecheck": "tsc --noEmit"
   },
@@ -15,6 +19,8 @@
   "type": "module",
   "devDependencies": {
     "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "tsx": "^4.21.0",
     "typescript": "^6.0.3"
   },
@@ -23,6 +29,9 @@
     "@anthropic-ai/sdk": "^0.91.1",
     "@keeperhub/wallet": "^0.1.7",
     "dotenv": "^17.4.2",
-    "ethers": "^6.16.0"
+    "ethers": "^6.16.0",
+    "next": "^16.2.4",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
   }
 }

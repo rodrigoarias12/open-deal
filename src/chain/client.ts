@@ -1,5 +1,5 @@
 import { JsonRpcProvider, Wallet } from "ethers";
-import { CHAIN, requireEnv } from "../config.js";
+import { CHAIN, requireEnv } from "../config";
 
 export function getProvider(): JsonRpcProvider {
   return new JsonRpcProvider(CHAIN.rpc, CHAIN.id);

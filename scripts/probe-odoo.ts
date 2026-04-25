@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { requireEnv } from "../src/config.js";
+import { requireEnv } from "../src/config";
 
 const url = requireEnv("ODOO_URL");
 const login = requireEnv("ODOO_USERNAME");

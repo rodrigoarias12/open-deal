@@ -1,6 +1,6 @@
 import "dotenv/config";
-import { requireEnv } from "../src/config.js";
-import { OdooClient, OdooSource } from "../src/sources/odoo.js";
+import { requireEnv } from "../src/config";
+import { OdooClient, OdooSource } from "../src/sources/odoo";
 
 async function main() {
   const client = new OdooClient({

@@ -1,6 +1,6 @@
 import { formatEther } from "ethers";
-import type { TreasuryPolicy } from "../ens/policy.js";
-import type { CashState } from "../sources/types.js";
+import type { TreasuryPolicy } from "../ens/policy";
+import type { CashState } from "../sources/types";
 
 export const SYSTEM = `You are an autonomous treasury agent for a small business.
 Your job: decide whether to convert part of the company's onchain ETH treasury into USDC (a USD-pegged stablecoin), to lock in dollar value against ETH price swings.

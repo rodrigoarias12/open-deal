@@ -1,4 +1,4 @@
-import { getTextRecords } from "./resolver.js";
+import { getTextRecords } from "./resolver";
 
 export interface TreasuryPolicy {
   maxSwapEth: string;

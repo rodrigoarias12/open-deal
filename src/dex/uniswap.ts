@@ -1,6 +1,6 @@
 import type { TransactionReceipt, Wallet } from "ethers";
-import { CHAIN, UNISWAP, requireEnv } from "../config.js";
-import { x402fetch } from "../payments/keeperhub.js";
+import { CHAIN, UNISWAP, requireEnv } from "../config";
+import { x402fetch } from "../payments/keeperhub";
 
 export type TradeType = "EXACT_INPUT" | "EXACT_OUTPUT";
 

@@ -1,11 +1,11 @@
 import { parseEther } from "ethers";
-import { NATIVE_ETH, TOKENS, env } from "../config.js";
-import { getBalanceEth, getWallet } from "../chain/client.js";
-import { executeSwap, getQuote } from "../dex/uniswap.js";
-import { loadPolicy, type TreasuryPolicy } from "../ens/policy.js";
-import { llmAsk } from "../llm/client.js";
-import type { AccountingSource, CashState } from "../sources/types.js";
-import { SYSTEM, userPrompt } from "./prompts.js";
+import { NATIVE_ETH, TOKENS, env } from "../config";
+import { getBalanceEth, getWallet } from "../chain/client";
+import { executeSwap, getQuote } from "../dex/uniswap";
+import { loadPolicy, type TreasuryPolicy } from "../ens/policy";
+import { llmAsk } from "../llm/client";
+import type { AccountingSource, CashState } from "../sources/types";
+import { SYSTEM, userPrompt } from "./prompts";
 
 export type Decision = {
   action: "swap_to_stable" | "hold";

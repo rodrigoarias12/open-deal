@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { MODEL, requireEnv } from "../config.js";
+import { MODEL, requireEnv } from "../config";
 
 let client: Anthropic | null = null;
 

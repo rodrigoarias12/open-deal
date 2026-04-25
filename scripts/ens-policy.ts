@@ -1,6 +1,6 @@
 import "dotenv/config";
-import { env } from "../src/config.js";
-import { loadPolicy } from "../src/ens/policy.js";
+import { env } from "../src/config";
+import { loadPolicy } from "../src/ens/policy";
 
 async function main() {
   const arg = process.argv[2];

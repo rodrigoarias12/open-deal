@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { JsonRpcProvider, Wallet, formatEther, formatUnits, parseEther } from "ethers";
-import { CHAIN, NATIVE_ETH, TOKENS, requireEnv } from "../src/config.js";
-import { executeSwap, getQuote } from "../src/dex/uniswap.js";
+import { CHAIN, NATIVE_ETH, TOKENS, requireEnv } from "../src/config";
+import { executeSwap, getQuote } from "../src/dex/uniswap";
 
 async function main() {
   const provider = new JsonRpcProvider(CHAIN.rpc);

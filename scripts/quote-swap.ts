@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { formatEther, formatUnits, parseEther, Wallet } from "ethers";
-import { NATIVE_ETH, TOKENS, requireEnv } from "../src/config.js";
-import { getQuote } from "../src/dex/uniswap.js";
+import { NATIVE_ETH, TOKENS, requireEnv } from "../src/config";
+import { getQuote } from "../src/dex/uniswap";
 
 async function main() {
   const swapper = new Wallet(requireEnv("AGENT_PRIVATE_KEY")).address;

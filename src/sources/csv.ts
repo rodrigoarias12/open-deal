@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import type { AccountingSource, CashState } from "./types.js";
+import type { AccountingSource, CashState } from "./types";
 
 export class CsvSource implements AccountingSource {
   readonly name = "csv";

@@ -1,12 +1,12 @@
 import "dotenv/config";
 import { formatEther } from "ethers";
-import { CHAIN, env, llmProvider } from "./config.js";
-import { getBalanceEth, getBlockNumber, getWallet } from "./chain/client.js";
-import { runTick } from "./agent/core.js";
-import { CsvSource } from "./sources/csv.js";
-import { OdooClient, OdooSource } from "./sources/odoo.js";
-import { logTick } from "./audit/logger.js";
-import type { AccountingSource } from "./sources/types.js";
+import { CHAIN, env, llmProvider } from "./config";
+import { getBalanceEth, getBlockNumber, getWallet } from "./chain/client";
+import { runTick } from "./agent/core";
+import { CsvSource } from "./sources/csv";
+import { OdooClient, OdooSource } from "./sources/odoo";
+import { logTick } from "./audit/logger";
+import type { AccountingSource } from "./sources/types";
 
 async function checkChain(): Promise<void> {
   console.log(`\n[chain] ${CHAIN.name} (id ${CHAIN.id}) via ${CHAIN.rpc}`);

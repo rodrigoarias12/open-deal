@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { Tick } from "../agent/core.js";
+import type { Tick } from "../agent/core";
 
 const AUDIT_DIR = "audit";
 
