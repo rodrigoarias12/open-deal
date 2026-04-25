@@ -86,5 +86,69 @@ _(will be filled in as we integrate)_
 
 ## ENS
 
-_(will be filled in as we integrate)_
+### What I built with ENS
+
+I used ENS text records as the *policy layer* for the autonomous agent —
+not as identity (which is the obvious use), and not as recipient
+resolution (also obvious), but as a **public, on-chain governance
+surface** that the agent reads before each tick. Records under the
+keys `treasury.maxSwapEth`, `treasury.minBufferEth`,
+`treasury.allowedTokens`, `treasury.maxDailyVolumeEth`,
+`treasury.cooldownSeconds` define what the agent is *allowed* to do.
+A human owns the ENS name; the agent owns the wallet. To change the
+policy the human posts a tx on a name they already control — no
+contract redeploy, no admin endpoint, no "trust me bro" YAML.
+
+The shipped flow is:
+
+```
+runTick →
+  loadPolicy(ENS_NAME)        // ethers' built-in mainnet ENS resolution
+  pass policy into prompt      // claude on bedrock cites it back to me
+  enforcePolicy(decision)      // hard reject if model strayed
+  if allowed → executeSwap     // onchain, on Sepolia
+  audit JSON includes the full policy snapshot used
+```
+
+This gave me a property I genuinely care about: every onchain action
+the agent took is traceable to *exactly the policy bytes that
+authorized it at that timestamp*, and those bytes are public ENS state.
+Nice fit for "trustless agent."
+
+### What worked well
+
+- ethers v6's built-in ENS resolution is very nice. `provider.resolveName`,
+  `provider.lookupAddress`, `resolver.getText(key)` are all one-liners,
+  no extra package. Verified against `vitalik.eth` in seconds.
+- Custom keys "just work." I picked `treasury.maxSwapEth` (no convention,
+  no namespace registration) and ENS happily stores and serves it.
+- Graceful degradation is easy: when the resolver returns no records,
+  fall back to safe defaults so the agent never crashes from a missing
+  ENS name. (Important for the local dev loop where you don't always
+  have a registered name handy.)
+
+### Friction
+
+- A non-Sepolia mainnet RPC is required even for an agent that
+  transacts only on Sepolia, because the names that actually have value
+  in this ecosystem live on mainnet. Not a bug, just a docs/UX point:
+  every "agent reads ENS" example I'd love to see in the docs is
+  cross-chain by definition. A short snippet like
+  *"reading ENS from a different-chain agent: instantiate a separate
+  mainnet provider only for resolution"* would shortcut this for
+  every agent builder.
+- I'd love a sponsored/recommended *namespace registry* for app-level
+  text-record keys (the EIPs cover identity records like
+  `com.twitter`, `email`, `url`, but say nothing about app-defined
+  keys). Without one, every project will reinvent "treasury.foo" and
+  collisions are inevitable. A page like "if you publish text records
+  for your app, register your namespace prefix here" would prevent
+  the squatting that's about to start.
+- Setting text records via the official UI is one tx per record,
+  which is fine for the demo but expensive for any real-world policy
+  with 5-10 records. A "set multiple text records in one tx" UX —
+  via multicall — would matter a lot for agent operators in
+  production.
+
+(Continuing observations as I wire in KeeperHub.)
 
