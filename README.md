@@ -1,107 +1,179 @@
-# openagents-treasury
+# openagents-treasury → NanoProcure
 
-Autonomous treasury agent. Reads your books, follows your onchain policy, executes under it. Every decision signed. Every action audited.
+**An open framework for autonomous, trust-minimized B2B agents.** Identity on ENS,
+governance on ENS text records, verifiable memory on 0G, autonomous payments on
+KeeperHub, escrow on Sepolia. Three composable OpenClaw plugins + two reference
+example agents that prove the framework lets a buyer and a seller find each other,
+trade, and settle without a human in the middle of every step.
 
-Built solo for [ETHGlobal Open Agents](https://ethglobal.com/events/openagents) (April 24 – May 6, 2026). Single chain: Sepolia.
+Built solo for [ETHGlobal Open Agents](https://ethglobal.com/events/openagents)
+(April 24 – May 6, 2026).
 
 > The policy is the contract. The agent is the executor. The audit is the receipt.
 
-## What it does
+---
 
-Each tick is a pure function from `(books, policy)` to `(tx, audit)`:
+## What's onchain right now
 
-1. **Read books.** Pull cash state from Odoo via JSON-RPC, or from a CSV fixture in dev. Balances, pending invoices, burn rate.
-2. **Fetch policy.** Resolve ENS text records under a configured name (defaults `treasury.*`) — `maxSwapEth`, `minBufferEth`, `allowedTokens`, `maxDailyVolumeEth`, `cooldownSeconds`.
-3. **Reason.** Send books + policy + wallet balance to Claude (`claude-sonnet-4-6` via Anthropic API or AWS Bedrock). Get a structured decision: `swap_to_stable | hold`, with a one-line rationale.
-4. **Execute.** If the decision is a swap, the policy is re-checked, then the tx is built and broadcast through the Uniswap Trading API on Sepolia. Out-of-bounds decisions are downgraded to `hold` with the reason recorded.
-5. **Audit.** Every tick — input snapshot, prompt, model output, decision, policy used, tx hash — appended to `audit/<timestamp>.json`.
+| Artifact | Address | Network |
+|---|---|---|
+| Agent identity (ENS) | [`openagents-treasury.eth`](https://sepolia.app.ens.domains/openagents-treasury.eth) — owner = agent wallet, 11 text records (policy + identity) | Sepolia ENS |
+| Seller subname (ENS) | [`seller-acme.openagents-treasury.eth`](https://sepolia.app.ens.domains/seller-acme.openagents-treasury.eth) — `endpoint` text record drives discovery | Sepolia ENS |
+| `AuditAnchor.sol` | [`0xc4B91f01352cff1191eBd3d15A521D94ED081d89`](https://chainscan-galileo.0g.ai/address/0xc4B91f01352cff1191eBd3d15A521D94ED081d89) — every audit anchored with policy hash | 0G Galileo |
+| `ProcurementEscrow.sol` | [`0x43b31222B22C35D0E5134d03D3f9bb18182360b8`](https://sepolia.etherscan.io/address/0x43b31222B22C35D0E5134d03D3f9bb18182360b8) — buyer locks funds, seller releases on shipment | Sepolia |
+| Agent wallet | [`0x13aF7f5B…7AC1`](https://sepolia.etherscan.io/address/0x13aF7f5B2aD2a230d364cc2484380e711fe17AC1) — same key signs swaps, ENS records, escrow, 0G storage uploads | Sepolia + 0G |
 
-Outbound HTTP (currently Uniswap, soon any premium endpoint) is wrapped through KeeperHub's `paymentSigner.fetch`, so HTTP 402 / x402 / MPP responses are auto-paid in USDC by a Turnkey-custodied agent wallet — within the same policy.
+> Every demo run produces real txs on Sepolia + 0G. No mocks, no localhost-only
+> magic. Anchors at index ≥ 9 on the AuditAnchor contract are from agent runs
+> during the build window.
 
-## Live proof (Sepolia)
+---
 
-Six successful swaps from the agent wallet `0x13aF7f5B2aD2a230d364cc2484380e711fe17AC1`:
+## The framework — three OpenClaw plugins
 
-- [`0x5bbb43e5…40ada4`](https://sepolia.etherscan.io/tx/0x5bbb43e5b6488a10cb8c6e5055c826dbce6531a0f4ee0ee258e76cf49640ada4) — agent decided + executed via the dashboard
-- [`0xff7558b1…ffe2ce`](https://sepolia.etherscan.io/tx/0xff7558b1ebb233d9d3bf72202176b726a8ec996f5a61d9c948e60298caffe2ce) — agent decided + executed via the CLI
-- [`0x9730fcd8…e5c1c8`](https://sepolia.etherscan.io/tx/0x9730fcd8a9527ffcaa6d4aeb26fbe94a728c3afed5b1b97a72e2cb5e2ae5c1c8), [`0x0bde27b4…3fa9beb`](https://sepolia.etherscan.io/tx/0x0bde27b48d27550c858f62c1c40bfc77825df2df064f1066f0b8c15063fa9beb), [`0xf0e7ed11…3ff2e24e0b`](https://sepolia.etherscan.io/tx/0xf0e7ed115b5fa15bb78e774bc9f3c9d452348f283289e9cb2b18da3ff2e24e0b), [`0x48701e0d…ef751a7b`](https://sepolia.etherscan.io/tx/0x48701e0d481d276df285b9f194cac3bcb6d5a0231174dcfa41f43c26ef751a7b) — earlier validation runs
+Any OpenClaw agent can adopt these three plugins to gain governance + autonomous
+payments + verifiable audit, in a single plugin manifest, no custom wiring.
 
-Audit JSONs for each are in `audit/`.
+| Plugin | Tools | What it gives the agent |
+|---|---|---|
+| **`policy-from-ens`** | `treasury_policy_check` | Reads policy text records from ENS (mainnet, Sepolia, any chain w/ canonical ENS). Returns `allowed: true \| false` with a quoteable reason. Operator updates the policy with a tx — agent picks it up next call. |
+| **`keeperhub-rail`** | `kh_pay`, `kh_balance`, `kh_fund_instructions` | Autonomous x402 payment rail. Any URL the agent calls — paid oracles, sanctions checks, logistics quotes — is auto-paid in USDC by the KeeperHub wallet on Base + Tempo. No human in the loop per call. |
+| **`audit-to-0g`** | `record_audit` | Uploads any decision record to 0G Storage and anchors the storage root + policy hash on 0G Chain. A third party can fetch the JSON, recompute the hash, and verify the action was authorized by exactly that policy. |
+
+Plugins live under [`plugins/`](./plugins). Each is a standalone npm-publishable
+package with its own `openclaw.plugin.json`, README, and smoke test.
+
+---
+
+## Reference example agents
+
+Both examples consume the same three plugins. Different domains, identical
+trust property.
+
+### `examples/example-agent/` — autonomous treasury
+
+A single-tick agent that:
+
+1. fetches external context via `kh_pay` (autonomous x402 payment),
+2. asks `treasury_policy_check` whether the proposed swap fits ENS-resolved
+   bounds,
+3. executes the swap (mocked here; real Uniswap broadcast in the legacy
+   `src/agent/core.ts` flow),
+4. records the full snapshot via `record_audit` to 0G Storage + 0G Chain.
+
+Run:
+
+```bash
+npx tsx examples/example-agent/run.ts
+```
+
+### `apps/buyer-agent/` + `apps/seller-agent/` — NanoProcure (B2B procurement)
+
+Two **separate processes**, peer-to-peer over HTTP, each identified by an ENS
+name, each transaction policy-gated and audit-anchored.
+
+```
+apps/seller-agent/  HTTP server on :3030
+  GET /catalog              published SKUs, stock, prices
+  POST /rfq                 returns a signed quote for a (sku, quantity) request
+
+apps/buyer-agent/   per-tick loop
+  ├─ read inventory needs from real Odoo (fallback to fixture)
+  ├─ resolve seller endpoints from ENS subnames (text record `endpoint`)
+  ├─ broadcast RFQ to each seller, collect signed quotes
+  ├─ pattern-detect a recurring purchase + better-deal trigger
+  │   "3 past purchases at avg $10.10/u → new offer $6.50/u → 36% saving"
+  ├─ policy gate via @openagents/openclaw-policy-from-ens
+  ├─ ProcurementEscrow.createOrder() — buyer locks funds onchain
+  └─ record_audit via @openagents/openclaw-audit-to-0g
+       full record (RFQ, all quotes, winner, pattern, policy, escrow tx)
+       uploaded to 0G Storage, anchored on 0G Chain
+```
+
+Run:
+
+```bash
+# terminal 1
+npx tsx apps/seller-agent/src/index.ts
+
+# terminal 2
+npx tsx apps/buyer-agent/src/index.ts
+```
+
+---
+
+## Sponsor map
+
+| Sponsor | Track / focus | What's shipped |
+|---|---|---|
+| **0G** | Track 1: Best Agent Framework, Tooling & Core Extensions | 3 OpenClaw plugins + working example agent + ARCHITECTURE.md + AuditAnchor on 0G Chain |
+| **0G** | Track 2: Best Autonomous Agents, Swarms & iNFT Innovations | Buyer + seller multi-agent flow with shared 0G Storage memory + 0G Chain anchor per decision |
+| **ENS** | Best Integration for AI Agents (Identity) | Agent owns `openagents-treasury.eth`, addr resolves to wallet, identity records (description, url, com.github, notice). Seller subnames carry `endpoint` text records used for runtime discovery — no hardcoded URLs in the buyer. |
+| **ENS** | Most Creative Use of ENS | Text records under `treasury.*` are the agent's governance surface. The policy bytes that authorize an onchain action are public ENS state — operator updates the policy with one tx, agent picks it up next call. |
+| **KeeperHub** | Best Use of KeeperHub | `keeperhub-rail` plugin exposes 3 tools (`kh_pay`, `kh_balance`, `kh_fund_instructions`) any OpenClaw agent can adopt for autonomous x402 payments. The example agent calls `kh_pay` on every tick. |
+| **KeeperHub** | Builder Feedback Bounty | [`FEEDBACK.md`](./FEEDBACK.md) — specific UX issues, bugs, and feature requests from the build, plus a note on the npm package name confusion that cost the day-1 spike 30 minutes. |
+
+---
 
 ## Stack
 
 | Layer | Choice | File |
 |---|---|---|
-| Reasoning | Claude Sonnet 4.6 (Anthropic API **or** AWS Bedrock — selected by env precedence) | `src/llm/client.ts` |
-| Books | Odoo (JSON-RPC) or CSV fixture | `src/sources/odoo.ts`, `src/sources/csv.ts` |
-| Policy | ENS text records, `treasury.*` keys | `src/ens/policy.ts` |
-| Execution | Uniswap Trading API (V2/V3/V4 routing) | `src/dex/uniswap.ts` |
-| x402 / paid endpoints | KeeperHub agentic wallet | `src/payments/keeperhub.ts` |
-| Chain | Sepolia (chainId 11155111) via Alchemy or any RPC | `src/chain/client.ts` |
-| Audit | Append-only JSON files in `audit/` | `src/audit/logger.ts` |
-| UI | Next.js 16 (Turbopack) — landing + live dashboard | `app/` |
+| Reasoning | Claude Sonnet 4.6 (Anthropic API or AWS Bedrock — env-selected) | `src/llm/client.ts` |
+| Books / Inventory | Odoo (JSON-RPC) — accounting + product.product low-stock query | `src/sources/odoo.ts`, `src/sources/odoo-inventory.ts` |
+| Identity | ENS (Sepolia) — agent name + seller subnames | `scripts/ens-register.ts`, `scripts/ens-set-subname.ts` |
+| Policy | ENS text records under `treasury.*` | `plugins/policy-from-ens/` |
+| Execution (legacy treasury) | Uniswap Trading API on Sepolia | `src/dex/uniswap.ts` |
+| Execution (procurement) | `ProcurementEscrow.sol` on Sepolia | `contracts/ProcurementEscrow.sol` |
+| x402 / paid endpoints | KeeperHub agentic wallet (Base + Tempo) | `plugins/keeperhub-rail/`, `src/payments/keeperhub.ts` |
+| Memory + Audit | 0G Storage (full JSON) + AuditAnchor on 0G Chain | `plugins/audit-to-0g/`, `contracts/AuditAnchor.sol` |
+| Chain (treasury, escrow) | Sepolia (chainId 11155111) | `src/chain/client.ts` |
+| Chain (audit anchor) | 0G Galileo (chainId 16602) | `contracts/AuditAnchor.deployment.json` |
+| UI | Next.js 16 (Turbopack) | `app/` |
 
-## Architecture
-
-```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                       src/agent/core.ts (entry: runTick)                 │
-│                                                                          │
-│   ▸ source.fetch()      ▸ loadPolicy(ens)      ▸ llmAsk(claude)          │
-│         │                       │                    │                   │
-│         ▼                       ▼                    ▼                   │
-│   ┌──────────┐           ┌──────────────┐     ┌──────────────┐           │
-│   │ sources/ │           │  ens/policy  │     │ llm/client   │           │
-│   │  odoo.ts │           │   .ts        │     │   .ts        │           │
-│   │  csv.ts  │           └──────┬───────┘     └──────┬───────┘           │
-│   └──────────┘                  │                    │                   │
-│        │                        │                    │                   │
-│        └────────────► state ◄───┴───── prompt ◄──────┘                   │
-│                         │                                                │
-│                         ▼                                                │
-│                 ┌─────────────────┐         ┌────────────────────┐       │
-│                 │ dex/uniswap.ts  │ ──tx──▶ │  ethers v6 wallet  │       │
-│                 │  (Trading API)  │         │   sepolia.signer   │       │
-│                 └────────┬────────┘         └─────────┬──────────┘       │
-│                          │                            │                  │
-│                          ▼                            ▼                  │
-│                 ┌─────────────────┐         ┌────────────────────┐       │
-│                 │  audit/logger   │         │ payments/keeperhub │       │
-│                 │   audit/*.json  │         │   x402 outbound    │       │
-│                 └─────────────────┘         └────────────────────┘       │
-└──────────────────────────────────────────────────────────────────────────┘
-```
+---
 
 ## Run
 
 ```bash
 cp .env.example .env
-# fill what you have. The agent picks its providers from what's set:
-#   - ANTHROPIC_API_KEY        → use Anthropic API directly
-#   - AWS_REGION (no API key)  → use AWS Bedrock
+# fill what you have. The agent picks providers from what's set:
+#   - ANTHROPIC_API_KEY        → Anthropic API directly
+#   - AWS_REGION (no API key)  → AWS Bedrock
 #   - LLM_PROVIDER=bedrock     → force Bedrock even if API key is set
-#   - UNISWAP_API_KEY          → required (free at developers.uniswap.org)
-#   - SEPOLIA_RPC_URL          → required for swaps
+#   - SEPOLIA_RPC_URL          → required for swaps + escrow
 #   - AGENT_PRIVATE_KEY        → 0x-prefixed; keep on testnet
-#   - ENS_NAME                 → optional; loads policy from ENS records,
-#                                falls back to safe defaults if unset
-#   - ODOO_URL/DB/USERNAME/PASSWORD → optional; CSV fixture if unset
+#   - ENS_NAME                 → defaults to openagents-treasury.eth
+#   - MAINNET_RPC_URL          → defaults to Sepolia public RPC for ENS
+#   - UNISWAP_API_KEY          → for legacy treasury swap demo
+#   - ODOO_URL/DB/USERNAME/PASSWORD → optional; fixture if unset
+#   - ZG_RPC_URL / ZG_INDEXER_URL → optional, sane defaults
 
 npm install
 
-# CLI: one tick from terminal
+# Treasury agent (legacy, single-tick)
 npm run dev
 
-# Web: landing + live dashboard at http://localhost:3000
+# Web: landing + live dashboard
 npm run web
 
-# Smoke tests
-npm run typecheck
-npx tsx scripts/quote-swap.ts        # Uniswap Trading API quote
-npx tsx scripts/swap.ts              # one real swap on Sepolia
-npx tsx scripts/ens-resolve.ts vitalik.eth   # ENS sanity
-npx tsx scripts/ens-policy.ts <ens-name>     # show effective policy
-npx tsx scripts/keeperhub-info.ts            # KH wallet info + balance
+# NanoProcure end-to-end (two terminals)
+npx tsx apps/seller-agent/src/index.ts          # term 1
+npx tsx apps/buyer-agent/src/index.ts           # term 2
+
+# Plugin smoke tests (run in isolation)
+npx tsx plugins/policy-from-ens/smoke-test.ts
+npx tsx plugins/audit-to-0g/smoke-test.ts
+npx tsx plugins/keeperhub-rail/smoke-test.ts
+
+# 0G + ENS scripts (already run during build)
+npx tsx scripts/zg-deploy-anchor.ts             # deploy AuditAnchor to 0G
+npx tsx scripts/zg-anchor-test.ts               # write a test anchor
+npx tsx scripts/ens-register.ts                 # register the .eth name
+npx tsx scripts/ens-set-records.ts              # set 11 text records
+npx tsx scripts/ens-set-subname.ts <label> <url>  # add a seller subname
+npx tsx scripts/deploy-escrow.ts                # deploy ProcurementEscrow
+npx tsx scripts/escrow-test.ts                  # exercise full escrow lifecycle
 ```
 
 For KeeperHub auto-pay you also need the Turnkey-custodied wallet:
@@ -114,9 +186,13 @@ npx @keeperhub/wallet fund       # funding instructions
 
 Heads-up: `dotenv` truncates unquoted values at `#`. Wrap any password or RPC URL containing `#` in double quotes in `.env`.
 
+---
+
 ## ENS policy keys
 
-When `ENS_NAME` is set in `.env`, the agent loads these text records on every tick (mainnet ENS — works even though execution is on Sepolia):
+When `ENS_NAME` resolves on the configured chain, the agent loads these text
+records on every tick. Update a record, the agent picks it up next tick — no
+redeploy.
 
 | Key | Type | Example | Default |
 |---|---|---|---|
@@ -125,59 +201,51 @@ When `ENS_NAME` is set in `.env`, the agent loads these text records on every ti
 | `treasury.allowedTokens` | csv | `"USDC,DAI"` | `"USDC"` |
 | `treasury.maxDailyVolumeEth` | decimal ETH | `"0.05"` | `"0.05"` |
 | `treasury.cooldownSeconds` | integer | `"3600"` | `3600` |
+| `treasury.carriers` | csv of addrs/ENS | `"acme.eth,boxes.eth"` | `""` (empty = permissive) |
+| `treasury.maxPerCarrierUsd` | USD | `"1000"` | `"1000"` |
 
-Update a record, the agent picks it up next tick. No redeploy.
-
-## Sponsors
-
-- **Uniswap** — Trading API for routing + swap execution. Builder feedback (DX comparison + actionable friction list) in [`FEEDBACK.md`](./FEEDBACK.md#uniswap).
-- **ENS** — text records as the agent's policy surface. Notes in [`FEEDBACK.md`](./FEEDBACK.md#ens).
-- **KeeperHub** — `paymentSigner.fetch` wraps every outbound HTTP call so HTTP 402 / x402 / MPP responses are auto-paid in USDC. Notes in [`FEEDBACK.md`](./FEEDBACK.md#keeperhub).
+---
 
 ## Layout
 
 ```
-src/
-  config.ts                  constants (chain, tokens, model ids), env helpers
-  chain/client.ts            ethers v6 provider + wallet
-  llm/client.ts              unified Claude client (Anthropic API or Bedrock)
-  sources/
-    types.ts                 AccountingSource interface, CashState
-    csv.ts                   CSV fixture source
-    odoo.ts                  JSON-RPC Odoo client + OdooSource
-  ens/
-    resolver.ts              mainnet ENS lookups
-    policy.ts                TreasuryPolicy + loadPolicy()
-  dex/uniswap.ts             Trading API getQuote() + executeSwap()
-  payments/keeperhub.ts      x402 fetch wrapper + getInfo()
-  agent/
-    prompts.ts               system + user prompts (policy as law)
-    core.ts                  runTick() — fetch, decide, enforce, execute, audit
-  audit/logger.ts            append audit/<ts>.json
-  index.ts                   CLI entrypoint (smoke test + one tick)
+plugins/
+  policy-from-ens/                 OpenClaw plugin: ENS text records as policy gate
+  audit-to-0g/                     OpenClaw plugin: verifiable audit on 0G
+  keeperhub-rail/                  OpenClaw plugin: autonomous x402 payments
 
-app/                         Next.js 16 (Turbopack)
-  page.tsx                   landing
-  dashboard/page.tsx         live agent state + Run-tick button
-  api/state/route.ts         GET dashboard state
-  api/tick/route.ts          POST run a tick from the UI
-  components/                Topbar, HeroTerminal, Loop, Demo, AuditList, FAQ
-  lib/                       state loader, landing fixtures
-  globals.css                token system (light + midnight-green default)
+apps/
+  buyer-agent/                     NanoProcure buyer (Odoo + RFQ + escrow + audit)
+  seller-agent/                    NanoProcure seller (catalog + signed quotes)
+
+examples/
+  example-agent/                   reference 90-line agent using the 3 plugins
+
+contracts/
+  AuditAnchor.sol                  on 0G Chain — anchors storage roots + policy hashes
+  ProcurementEscrow.sol            on Sepolia — buyer locks, seller releases
+  *.deployment.json                ABI + address artifacts
 
 scripts/
-  generate-wallet.ts         fresh dev wallet
-  quote-swap.ts              Uniswap quote
-  swap.ts                    one-shot manual swap on Sepolia
-  ens-resolve.ts             resolve a name + read text records
-  ens-policy.ts              show the effective TreasuryPolicy
-  keeperhub-info.ts          KH wallet info + balance
-  probe-odoo.ts              Odoo db-name + auth probe
-  test-odoo.ts               live integration check
+  zg-{deploy-anchor,anchor-test,spike}.ts
+  ens-{register,set-records,set-subname}.ts
+  deploy-escrow.ts, escrow-test.ts
+  generate-wallet.ts, quote-swap.ts, swap.ts
+  ens-resolve.ts, ens-policy.ts
+  keeperhub-info.ts, probe-odoo.ts, test-odoo.ts
 
-audit/<ts>.json              one file per tick, immutable
-fixtures/company.csv         dev source when Odoo isn't configured
+src/                               legacy treasury agent (single-tick swap)
+  agent/core.ts, ens/, dex/, payments/, sources/, audit/, llm/, chain/
+
+app/                               Next.js 16 — landing + live dashboard
+
+audit/<ts>.json                    one file per legacy tick (pre-0G migration)
+fixtures/company.csv               CSV source when Odoo isn't configured
+ARCHITECTURE.md                    layered diagram + trust property
+FEEDBACK.md                        sponsor DX feedback (Uniswap, ENS, KeeperHub, 0G)
 ```
+
+---
 
 ## License
 
