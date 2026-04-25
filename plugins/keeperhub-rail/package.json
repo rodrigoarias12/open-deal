@@ -1,0 +1,29 @@
+{
+  "name": "@openagents/openclaw-keeperhub-rail",
+  "version": "0.1.0",
+  "description": "OpenClaw plugin: autonomous x402 payment rail via KeeperHub agentic wallet. Any agent tool can call paid HTTP services without human intervention.",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "keywords": [
+    "openclaw",
+    "openclaw-plugin",
+    "keeperhub",
+    "x402",
+    "agentic-wallet",
+    "autonomous-payments"
+  ],
+  "openclaw": {
+    "plugin": {
+      "id": "keeperhub-rail",
+      "kind": "tool"
+    }
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.4.0",
+    "typebox": "^1.1.0",
+    "@keeperhub/wallet": "^0.1.7"
+  }
+}
