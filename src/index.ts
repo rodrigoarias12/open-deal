@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { formatEther } from "ethers";
-import { CHAIN, env } from "./config.js";
+import { CHAIN, env, llmProvider } from "./config.js";
 import { getBalanceEth, getBlockNumber, getWallet } from "./chain/client.js";
 import { runTick } from "./agent/core.js";
 import { CsvSource } from "./sources/csv.js";
@@ -52,14 +52,16 @@ function pickSource(): AccountingSource {
 }
 
 async function runAgentOnce(): Promise<void> {
-  if (!env("ANTHROPIC_API_KEY")) {
-    console.log("\n[agent] ANTHROPIC_API_KEY not set — skipping agent tick");
+  const provider = llmProvider();
+  if (provider === "anthropic" && !env("ANTHROPIC_API_KEY")) {
+    console.log("\n[agent] no LLM credentials (set ANTHROPIC_API_KEY or AWS_REGION) — skipping agent tick");
     return;
   }
-  console.log("");
+  console.log(`\n[agent] llm provider: ${provider}`);
   const source = pickSource();
   try {
     const tick = await runTick(source);
+    console.log(`[agent] llm: ${tick.llmProvider} ${tick.llmModel}`);
     if (tick.decision.action === "swap_to_stable") {
       console.log(`[agent] decision: swap ${tick.decision.amount_eth} ETH → USDC`);
     } else {

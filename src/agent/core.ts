@@ -1,8 +1,8 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { parseEther } from "ethers";
-import { MODEL, NATIVE_ETH, TOKENS, requireEnv } from "../config.js";
+import { NATIVE_ETH, TOKENS } from "../config.js";
 import { getBalanceEth, getWallet } from "../chain/client.js";
 import { executeSwap, getQuote } from "../dex/uniswap.js";
+import { llmAsk } from "../llm/client.js";
 import type { AccountingSource, CashState } from "../sources/types.js";
 import { SYSTEM, userPrompt } from "./prompts.js";
 
@@ -22,6 +22,8 @@ export type Execution = {
 export type Tick = {
   at: string;
   source: string;
+  llmProvider: "anthropic" | "bedrock";
+  llmModel: string;
   state: CashState;
   walletAddress: string;
   walletEthBefore: string;
@@ -30,18 +32,14 @@ export type Tick = {
   raw_response: string;
 };
 
-let client: Anthropic | null = null;
-
-function getClient(): Anthropic {
-  if (!client) {
-    client = new Anthropic({ apiKey: requireEnv("ANTHROPIC_API_KEY") });
-  }
-  return client;
-}
-
 function parseDecision(text: string): Decision {
-  const clean = text.replace(/```json\s*|\s*```/g, "").trim();
-  return JSON.parse(clean) as Decision;
+  const stripped = text.replace(/```json\s*|\s*```/g, "").trim();
+  const start = stripped.indexOf("{");
+  const end = stripped.lastIndexOf("}");
+  if (start === -1 || end === -1 || end < start) {
+    throw new Error(`No JSON object in LLM output: ${stripped.slice(0, 200)}`);
+  }
+  return JSON.parse(stripped.slice(start, end + 1)) as Decision;
 }
 
 export async function runTick(source: AccountingSource): Promise<Tick> {
@@ -49,21 +47,12 @@ export async function runTick(source: AccountingSource): Promise<Tick> {
   const wallet = getWallet();
   const walletEth = await getBalanceEth(wallet.address);
 
-  const resp = await getClient().messages.create({
-    model: MODEL,
-    max_tokens: 512,
+  const answer = await llmAsk({
     system: SYSTEM,
-    messages: [
-      {
-        role: "user",
-        content: userPrompt({ state, walletAddress: wallet.address, walletEth }),
-      },
-    ],
+    user: userPrompt({ state, walletAddress: wallet.address, walletEth }),
   });
-  const first = resp.content[0];
-  if (first.type !== "text") throw new Error(`Unexpected content type: ${first.type}`);
 
-  const decision = parseDecision(first.text);
+  const decision = parseDecision(answer.text);
   let execution: Execution | null = null;
 
   if (decision.action === "swap_to_stable") {
@@ -86,11 +75,13 @@ export async function runTick(source: AccountingSource): Promise<Tick> {
   return {
     at: new Date().toISOString(),
     source: source.name,
+    llmProvider: answer.provider,
+    llmModel: answer.model,
     state,
     walletAddress: wallet.address,
     walletEthBefore: walletEth.toString(),
     decision,
     execution,
-    raw_response: first.text,
+    raw_response: answer.text,
   };
 }
