@@ -23,72 +23,139 @@ export default async function Dashboard() {
   const s = await loadDashboardState();
 
   return (
-    <main className="shell">
-      <header className="top">
+    <main className="dash-shell">
+      <header className="dash-header">
         <div>
-          <h1>openagents-treasury</h1>
-          <div className="sub">Autonomous treasury agent · ETHGlobal Open Agents 2026</div>
+          <h1>openagents-treasury · dashboard</h1>
+          <div className="sub">live agent state · sepolia</div>
         </div>
-        <Link href="/" style={{ fontSize: 12 }}>← back to overview</Link>
+        <Link href="/" className="btn">
+          ← landing
+        </Link>
       </header>
 
       {s.warnings.map((w, i) => (
-        <div className="error" key={i}>{w}</div>
+        <div className="dash-error" key={i}>
+          {w}
+        </div>
       ))}
 
-      <div className="run-bar">
+      <div className="dash-runbar">
         <div className="left">
-          Source: <strong>{s.recentTicks[0]?.tick.source ?? "(no ticks yet)"}</strong> · LLM: <strong>{s.llm.provider}</strong> · Chain: <strong>{s.chain.name}</strong>
+          source <strong>{s.recentTicks[0]?.tick.source ?? "—"}</strong> · llm{" "}
+          <strong>
+            {s.recentTicks[0]?.tick.llmModel ?? s.llm.provider}
+          </strong>{" "}
+          · chain <strong>{s.chain.name}</strong>
         </div>
         <RunTickButton />
       </div>
 
-      <div className="grid">
-        <div className="card">
-          <h2>Agent wallet</h2>
-          <div className="row"><span className="k">address</span><span className="v"><a href={`${s.chain.explorer}/address/${s.agentWallet.address}`} target="_blank">{shortAddr(s.agentWallet.address)}</a></span></div>
-          <div className="row"><span className="k">eth balance</span><span className="v positive">{Number(s.agentWallet.ethBalance).toFixed(6)} ETH</span></div>
-          <div className="row"><span className="k">network</span><span className="v">{s.chain.name}</span></div>
+      <div className="dash-grid">
+        <div className="dash-card">
+          <h2>agent wallet</h2>
+          <div className="dash-row">
+            <span className="k">address</span>
+            <span className="v">
+              <a
+                href={`${s.chain.explorer}/address/${s.agentWallet.address}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {shortAddr(s.agentWallet.address)}
+              </a>
+            </span>
+          </div>
+          <div className="dash-row">
+            <span className="k">eth balance</span>
+            <span className="v accent">{Number(s.agentWallet.ethBalance).toFixed(6)} ETH</span>
+          </div>
+          <div className="dash-row">
+            <span className="k">network</span>
+            <span className="v">{s.chain.name}</span>
+          </div>
         </div>
 
-        <div className="card">
-          <h2>KeeperHub wallet</h2>
+        <div className="dash-card">
+          <h2>keeperhub wallet</h2>
           {s.keeperhubWallet ? (
             <>
-              <div className="row"><span className="k">address</span><span className="v">{shortAddr(s.keeperhubWallet.address)}</span></div>
-              <div className="row"><span className="k">base usdc</span><span className="v">{s.keeperhubWallet.baseUsdc}</span></div>
-              <div className="row"><span className="k">tempo usdc.e</span><span className="v">{s.keeperhubWallet.tempoUsdc}</span></div>
+              <div className="dash-row">
+                <span className="k">address</span>
+                <span className="v">{shortAddr(s.keeperhubWallet.address)}</span>
+              </div>
+              <div className="dash-row">
+                <span className="k">base usdc</span>
+                <span className="v">{s.keeperhubWallet.baseUsdc}</span>
+              </div>
+              <div className="dash-row">
+                <span className="k">tempo usdc.e</span>
+                <span className="v">{s.keeperhubWallet.tempoUsdc}</span>
+              </div>
             </>
           ) : (
-            <div className="empty">not provisioned</div>
+            <div className="dash-row">
+              <span className="k">status</span>
+              <span className="v">not provisioned</span>
+            </div>
           )}
         </div>
 
-        <div className="card">
-          <h2>Treasury policy <span className={`tag ${s.policy.source === "ens" ? "live" : ""}`}>{s.policy.source}</span></h2>
-          {s.policy.ensName && (
-            <div className="row"><span className="k">source name</span><span className="v">{s.policy.ensName}</span></div>
+        <div className="dash-card">
+          <h2>
+            treasury policy{" "}
+            <span className={`dash-tag ${s.policy.source === "ens" ? "live" : ""}`}>
+              {s.policy.source}
+            </span>
+          </h2>
+          {s.policy.ensName ? (
+            <div className="dash-row">
+              <span className="k">name</span>
+              <span className="v">{s.policy.ensName}</span>
+            </div>
+          ) : (
+            <div className="dash-row">
+              <span className="k">override</span>
+              <span className="v" style={{ color: "var(--ink-faint)" }}>set ENS_NAME</span>
+            </div>
           )}
-          <div className="row"><span className="k">max swap</span><span className="v">{s.policy.maxSwapEth} ETH</span></div>
-          <div className="row"><span className="k">min buffer</span><span className="v">{s.policy.minBufferEth} ETH</span></div>
-          <div className="row"><span className="k">allowed</span><span className="v">{s.policy.allowedTokens.join(", ")}</span></div>
-          <div className="row"><span className="k">daily cap</span><span className="v">{s.policy.maxDailyVolumeEth} ETH</span></div>
-          <div className="row"><span className="k">cooldown</span><span className="v">{s.policy.cooldownSeconds}s</span></div>
+          <div className="dash-row">
+            <span className="k">max swap</span>
+            <span className="v">{s.policy.maxSwapEth} ETH</span>
+          </div>
+          <div className="dash-row">
+            <span className="k">min buffer</span>
+            <span className="v">{s.policy.minBufferEth} ETH</span>
+          </div>
+          <div className="dash-row">
+            <span className="k">allowed</span>
+            <span className="v">{s.policy.allowedTokens.join(", ")}</span>
+          </div>
+          <div className="dash-row">
+            <span className="k">daily cap</span>
+            <span className="v">{s.policy.maxDailyVolumeEth} ETH</span>
+          </div>
+          <div className="dash-row">
+            <span className="k">cooldown</span>
+            <span className="v">{s.policy.cooldownSeconds}s</span>
+          </div>
         </div>
       </div>
 
-      <h2 className="section-title">Recent ticks</h2>
+      <h2 className="dash-section-title">Recent ticks</h2>
       {s.recentTicks.length === 0 ? (
-        <div className="empty">No ticks logged yet. Press <em>Run agent tick</em> to produce one.</div>
+        <div className="dash-empty">
+          no ticks logged yet. press <em>run agent tick</em> to produce one.
+        </div>
       ) : (
-        <table className="audit">
+        <table className="dash-table">
           <thead>
             <tr>
-              <th>Time</th>
-              <th>Action</th>
-              <th>Amount</th>
-              <th>Tx</th>
-              <th>Reason</th>
+              <th>time</th>
+              <th>action</th>
+              <th>amount</th>
+              <th>tx</th>
+              <th>reason</th>
             </tr>
           </thead>
           <tbody>
@@ -108,7 +175,7 @@ function TickRow({ tick, explorer }: { tick: Tick; explorer: string }) {
     <tr>
       <td>{fmtTime(tick.at)}</td>
       <td>
-        <span className={`pill ${action === "swap_to_stable" ? "swap" : "hold"}`}>
+        <span className={`dash-pill ${action === "swap_to_stable" ? "swap" : "hold"}`}>
           {action === "swap_to_stable" ? "SWAP" : "HOLD"}
         </span>
       </td>
@@ -121,7 +188,11 @@ function TickRow({ tick, explorer }: { tick: Tick; explorer: string }) {
       </td>
       <td>
         {tick.execution ? (
-          <a href={`${explorer}/tx/${tick.execution.swapTxHash}`} target="_blank">
+          <a
+            href={`${explorer}/tx/${tick.execution.swapTxHash}`}
+            target="_blank"
+            rel="noreferrer"
+          >
             {shortTx(tick.execution.swapTxHash)}
           </a>
         ) : (
