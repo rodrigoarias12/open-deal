@@ -137,11 +137,15 @@ export async function POST(req: Request): Promise<NextResponse> {
     const [zgTx, zgErr] = await indexer.upload(memData, ZG_RPC, zgSigner);
     if (zgErr) throw new Error(`0G upload failed: ${zgErr}`);
     if (!zgTx) throw new Error("0G upload returned no tx");
-    result.catalog_cid = zgTx.rootHash.startsWith("0x")
-      ? zgTx.rootHash
-      : `0x${zgTx.rootHash}`;
-    result.catalog_storage_tx = zgTx.txHash;
-    result.explorer.catalog_storage = `https://storagescan-galileo.0g.ai/tx/${zgTx.txHash}`;
+    const zgSingle = zgTx as { txHash?: string; rootHash?: string };
+    if (!zgSingle.rootHash || !zgSingle.txHash) {
+      throw new Error("0G upload returned multi-segment result; expected single");
+    }
+    result.catalog_cid = zgSingle.rootHash.startsWith("0x")
+      ? zgSingle.rootHash
+      : `0x${zgSingle.rootHash}`;
+    result.catalog_storage_tx = zgSingle.txHash;
+    result.explorer.catalog_storage = `https://storagescan-galileo.0g.ai/tx/${zgSingle.txHash}`;
     events.push({
       step: "upload-catalog-to-0g",
       status: "ok",

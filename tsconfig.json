@@ -32,7 +32,6 @@
   },
   "include": [
     "src/**/*",
-    "scripts/**/*",
     "app/**/*",
     "next-env.d.ts",
     ".next/types/**/*.ts",
@@ -41,6 +40,10 @@
   "exclude": [
     "node_modules",
     "dist",
-    ".next"
+    ".next",
+    "plugins/**/*",
+    "apps/**/*",
+    "examples/**/*",
+    "scripts/**/*"
   ]
 }
