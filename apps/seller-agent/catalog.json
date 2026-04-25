@@ -1,0 +1,28 @@
+{
+  "seller": "Acme Cartonería S.A.",
+  "address": "0x13aF7f5B2aD2a230d364cc2484380e711fe17AC1",
+  "currency": "USDC",
+  "items": [
+    {
+      "sku": "PAPEL-A4-RES",
+      "name": "Papel A4 (resma 500h, 75g)",
+      "unit_price_usd": 6.5,
+      "stock": 240,
+      "delivery_days": 2
+    },
+    {
+      "sku": "CARTON-CAJA-30",
+      "name": "Caja cartón corrugado 30x20x15cm",
+      "unit_price_usd": 1.2,
+      "stock": 1500,
+      "delivery_days": 1
+    },
+    {
+      "sku": "TINTA-NEG-XL",
+      "name": "Cartucho tinta negra XL (compatible)",
+      "unit_price_usd": 18.0,
+      "stock": 60,
+      "delivery_days": 3
+    }
+  ]
+}

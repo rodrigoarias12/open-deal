@@ -1,0 +1,14 @@
+{
+  "buyer": "Paydece S.A. (demo)",
+  "buyer_address": "0x13aF7f5B2aD2a230d364cc2484380e711fe17AC1",
+  "buyer_ens": "openagents-treasury.eth",
+  "needs": [
+    {
+      "sku": "PAPEL-A4-RES",
+      "quantity": 10,
+      "max_unit_price_usd": 8.0,
+      "deadline_days": 5,
+      "reason": "office consumables — low stock detected in Odoo"
+    }
+  ]
+}
