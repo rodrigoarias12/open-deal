@@ -33,11 +33,15 @@ const KEYS = [
   "treasury.maxPerCarrierUsd",
 ];
 
-let providerCache: JsonRpcProvider | null = null;
+let providerCache: { url: string; provider: JsonRpcProvider } | null = null;
 function provider(rpc?: string): JsonRpcProvider {
-  if (providerCache) return providerCache;
-  providerCache = new JsonRpcProvider(rpc || "https://ethereum-rpc.publicnode.com", 1);
-  return providerCache;
+  const url = rpc || "https://ethereum-rpc.publicnode.com";
+  if (providerCache && providerCache.url === url) return providerCache.provider;
+  // No second arg → ethers auto-detects the chain. Works for mainnet,
+  // Sepolia, or any EVM chain that has the canonical ENS contracts deployed
+  // at the same registry address (ENS uses 0x00…2e1e cross-chain).
+  providerCache = { url, provider: new JsonRpcProvider(url) };
+  return providerCache.provider;
 }
 
 export async function loadPolicy(
