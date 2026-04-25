@@ -1,0 +1,14 @@
+{
+  "id": "audit-to-0g",
+  "name": "Audit to 0G",
+  "description": "Anchors agent audit records on 0G Storage + 0G Chain.",
+  "version": "0.1.0",
+  "kind": "tool",
+  "main": "src/index.ts",
+  "tools": [
+    {
+      "name": "record_audit",
+      "description": "Uploads an audit record to 0G Storage, anchors the storage root on 0G Chain, returns proof artifacts."
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "name": "@openagents/openclaw-audit-to-0g",
+  "version": "0.1.0",
+  "description": "OpenClaw plugin: anchor agent action audits to 0G Storage + 0G Chain. Verifiable history for autonomous agents.",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "keywords": [
+    "openclaw",
+    "openclaw-plugin",
+    "0g",
+    "0g-storage",
+    "0g-chain",
+    "audit",
+    "agent-history"
+  ],
+  "openclaw": {
+    "plugin": {
+      "id": "audit-to-0g",
+      "kind": "tool"
+    }
+  },
+  "peerDependencies": {
+    "ethers": "^6.13.1",
+    "openclaw": ">=2026.4.0",
+    "typebox": "^1.1.0",
+    "@0gfoundation/0g-ts-sdk": "^1.2.6"
+  }
+}
