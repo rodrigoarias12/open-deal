@@ -1,3 +1,4 @@
+import type { TransactionReceipt, Wallet } from "ethers";
 import { CHAIN, UNISWAP, requireEnv } from "../config.js";
 
 export type TradeType = "EXACT_INPUT" | "EXACT_OUTPUT";
@@ -35,21 +36,24 @@ export async function getQuote(params: QuoteParams): Promise<Quote> {
     swapper: params.swapper,
   };
 
-  const res = await fetch(`${UNISWAP.tradingApi}/quote`, {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Uniswap /quote ${res.status}: ${text}`);
+  let lastErr = "";
+  let data: any = null;
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    const res = await fetch(`${UNISWAP.tradingApi}/quote`, {
+      method: "POST",
+      headers: { "x-api-key": apiKey, "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) {
+      data = await res.json();
+      break;
+    }
+    lastErr = `${res.status} ${await res.text()}`;
+    const transient = res.status === 404 && lastErr.includes("No quotes available");
+    if (!transient || attempt === 4) throw new Error(`Uniswap /quote ${lastErr}`);
+    await new Promise((r) => setTimeout(r, 1500 * attempt));
   }
-
-  const data = await res.json();
+  if (!data) throw new Error(`Uniswap /quote ${lastErr}`);
   const q = data.quote;
   const aggOut = q.aggregatedOutputs?.[0];
 
@@ -78,4 +82,68 @@ function summarizeRoute(route: any[][]): string {
         .join(" → ")
     )
     .join(" | ");
+}
+
+export interface SwapTransaction {
+  to: string;
+  data: string;
+  value: string;
+  chainId: number;
+  gasLimit?: string;
+  maxFeePerGas?: string;
+  maxPriorityFeePerGas?: string;
+}
+
+export interface SwapResult {
+  hash: string;
+  receipt: TransactionReceipt;
+  explorerUrl: string;
+}
+
+export async function executeSwap(quote: Quote, wallet: Wallet): Promise<SwapResult> {
+  const apiKey = requireEnv("UNISWAP_API_KEY");
+  const permitData = quote.raw.permitData;
+
+  const body: Record<string, unknown> = { quote: quote.raw.quote };
+  if (permitData) {
+    body.permitData = permitData;
+    body.signature = await wallet.signTypedData(
+      permitData.domain,
+      permitData.types,
+      permitData.values,
+    );
+  }
+
+  const res = await fetch(`${UNISWAP.tradingApi}/swap`, {
+    method: "POST",
+    headers: { "x-api-key": apiKey, "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Uniswap /swap ${res.status}: ${text}`);
+  }
+  const data = await res.json();
+  const swapTx: SwapTransaction = data.swap;
+
+  const tx = await wallet.sendTransaction({
+    to: swapTx.to,
+    data: swapTx.data,
+    value: swapTx.value ? BigInt(swapTx.value) : 0n,
+    chainId: swapTx.chainId,
+    gasLimit: swapTx.gasLimit ? BigInt(swapTx.gasLimit) : undefined,
+    maxFeePerGas: swapTx.maxFeePerGas ? BigInt(swapTx.maxFeePerGas) : undefined,
+    maxPriorityFeePerGas: swapTx.maxPriorityFeePerGas
+      ? BigInt(swapTx.maxPriorityFeePerGas)
+      : undefined,
+  });
+
+  const receipt = await tx.wait();
+  if (!receipt) throw new Error(`Tx ${tx.hash} returned no receipt`);
+
+  return {
+    hash: tx.hash,
+    receipt,
+    explorerUrl: `${CHAIN.explorer}/tx/${tx.hash}`,
+  };
 }
