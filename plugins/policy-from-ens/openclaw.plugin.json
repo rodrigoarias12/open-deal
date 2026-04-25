@@ -1,0 +1,14 @@
+{
+  "id": "policy-from-ens",
+  "name": "Policy from ENS",
+  "description": "Gates onchain agent actions against treasury policy stored as ENS text records.",
+  "version": "0.1.0",
+  "kind": "tool",
+  "main": "src/index.ts",
+  "tools": [
+    {
+      "name": "treasury_policy_check",
+      "description": "Checks a proposed onchain action against ENS-stored treasury policy. Returns allowed:true|false."
+    }
+  ]
+}

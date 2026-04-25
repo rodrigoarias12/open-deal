@@ -1,0 +1,28 @@
+{
+  "name": "@openagents/openclaw-policy-from-ens",
+  "version": "0.1.0",
+  "description": "OpenClaw plugin: gates onchain agent actions against treasury policy stored as ENS text records.",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "keywords": [
+    "openclaw",
+    "openclaw-plugin",
+    "ens",
+    "agent-policy",
+    "onchain"
+  ],
+  "openclaw": {
+    "plugin": {
+      "id": "policy-from-ens",
+      "kind": "tool"
+    }
+  },
+  "peerDependencies": {
+    "ethers": "^6.13.1",
+    "openclaw": ">=2026.4.0",
+    "typebox": "^1.1.0"
+  }
+}
