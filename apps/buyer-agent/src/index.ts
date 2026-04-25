@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 import { Contract, JsonRpcProvider, Wallet, keccak256, parseEther, toUtf8Bytes } from "ethers";
 import policyPlugin from "../../../plugins/policy-from-ens/src/index.js";
 import auditPlugin from "../../../plugins/audit-to-0g/src/index.js";
+import { OdooClient } from "../../../src/sources/odoo.js";
+import { OdooInventorySource } from "../../../src/sources/odoo-inventory.js";
 
 interface Need {
   sku: string;
@@ -119,6 +121,45 @@ async function lockEscrow(args: {
     txHash: tx.hash,
     address: artifact.address,
   };
+}
+
+async function readNeedsFromOdooOrFixture(buyer: BuyerConfig): Promise<Need[]> {
+  if (
+    process.env.ODOO_URL &&
+    process.env.ODOO_DB &&
+    process.env.ODOO_USERNAME &&
+    process.env.ODOO_PASSWORD
+  ) {
+    console.log(`[buyer] checking Odoo (${process.env.ODOO_URL}) for low-stock items…`);
+    try {
+      const client = new OdooClient({
+        url: process.env.ODOO_URL,
+        db: process.env.ODOO_DB,
+        username: process.env.ODOO_USERNAME,
+        password: process.env.ODOO_PASSWORD,
+      });
+      const inventory = new OdooInventorySource(client, 5);
+      const low = await inventory.readLowStock();
+      if (low.length > 0) {
+        console.log(`[buyer]   ✓ Odoo returned ${low.length} low-stock item(s):`);
+        for (const item of low) {
+          console.log(`[buyer]     - ${item.sku} "${item.name}" qty=${item.qty_available}`);
+        }
+        return low.map((item) => ({
+          sku: item.sku,
+          quantity: Math.max(item.reorder_point * 2 - item.qty_available, item.reorder_point),
+          max_unit_price_usd: 100,
+          deadline_days: 5,
+          reason: `auto: Odoo low-stock alert (qty ${item.qty_available} < reorder ${item.reorder_point})`,
+        }));
+      }
+      console.log(`[buyer]   (Odoo returned 0 low-stock items — falling back to fixture needs)`);
+    } catch (e) {
+      console.log(`[buyer]   ⚠ Odoo error: ${(e as Error).message} — falling back to fixture`);
+    }
+  }
+  console.log(`[buyer] using fixture needs from needs.json`);
+  return buyer.needs;
 }
 
 async function resolveSellers(
@@ -287,8 +328,10 @@ async function main(): Promise<void> {
   ) as PurchaseHistory;
 
   console.log(`[buyer] ${buyer.buyer} (${buyer.buyer_ens})`);
+
+  const needs = await readNeedsFromOdooOrFixture(buyer);
   console.log(
-    `[buyer] ${buyer.needs.length} pending need(s) · ${registry.sellers.length} seller subname(s) in registry`,
+    `[buyer] ${needs.length} pending need(s) · ${registry.sellers.length} seller subname(s) in registry`,
   );
 
   const ensRpc =
@@ -307,7 +350,7 @@ async function main(): Promise<void> {
     throw new Error("plugins did not register expected tools");
   }
 
-  for (const need of buyer.needs) {
+  for (const need of needs) {
     const rfqId = `rfq-${Date.now()}-${need.sku}`;
     console.log(`\n[buyer] need: ${need.sku} x${need.quantity} (${need.reason})`);
     console.log(`[buyer] broadcasting ${rfqId}…`);
