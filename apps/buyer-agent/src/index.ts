@@ -35,6 +35,49 @@ const RESOLVER_ABI = [
   "function addr(bytes32 node, uint256 coinType) view returns (bytes)",
 ];
 
+const RECURRING_THRESHOLD = 2; // ≥ N past purchases for the same SKU = "recurring"
+const BETTER_DEAL_PCT = 15; // ≥ N% below avg = trigger human approval
+
+function detectPattern(
+  history: Purchase[],
+  sku: string,
+  newSellerEns: string,
+  newUnitPriceUsd: number,
+): PatternSignal {
+  const past = history.filter((p) => p.sku === sku);
+  const occurrences = past.length;
+  const isRecurring = occurrences >= RECURRING_THRESHOLD;
+  const avg = past.length === 0
+    ? newUnitPriceUsd
+    : past.reduce((s, p) => s + p.unit_price_usd, 0) / past.length;
+  const savingPct = avg === 0 ? 0 : ((avg - newUnitPriceUsd) / avg) * 100;
+  const isBetter = savingPct >= BETTER_DEAL_PCT;
+  const lastSeller = past[past.length - 1]?.seller_ens ?? "—";
+
+  let message: string;
+  if (isRecurring && isBetter) {
+    message = `Pattern: ${occurrences} past purchases of ${sku} from ${lastSeller} at avg $${avg.toFixed(2)}/u. New offer from ${newSellerEns} at $${newUnitPriceUsd.toFixed(2)}/u — ${savingPct.toFixed(0)}% saving. Recommend human approval before switching.`;
+  } else if (isRecurring) {
+    message = `Pattern: ${occurrences} past purchases of ${sku} (avg $${avg.toFixed(2)}/u). New offer at $${newUnitPriceUsd.toFixed(2)} is within range — auto-proceed.`;
+  } else if (isBetter) {
+    message = `New SKU but new offer is ${savingPct.toFixed(0)}% below first-seen price.`;
+  } else {
+    message = `No pattern signal — first or routine purchase.`;
+  }
+  return {
+    sku,
+    occurrences,
+    avg_unit_price_usd: Math.round(avg * 100) / 100,
+    last_seller_ens: lastSeller,
+    new_unit_price_usd: newUnitPriceUsd,
+    new_seller_ens: newSellerEns,
+    saving_pct: Math.round(savingPct * 10) / 10,
+    is_better_deal: isBetter,
+    is_recurring: isRecurring,
+    message,
+  };
+}
+
 // USD → ETH conversion for the demo. Production would call a price oracle
 // (or use real USDC and skip this entirely). 1 USD = 0.00001 ETH keeps the
 // total small enough that 1 demo run costs <0.001 ETH on Sepolia.
@@ -102,6 +145,33 @@ async function resolveSellers(
     console.log(`[buyer]   ✓ ${ens} → endpoint=${endpoint}, addr=${addrRaw ?? "(none)"}`);
   }
   return out;
+}
+
+interface Purchase {
+  sku: string;
+  seller: string;
+  seller_ens: string;
+  unit_price_usd: number;
+  quantity: number;
+  total_usd: number;
+  at: string;
+}
+
+interface PurchaseHistory {
+  purchases: Purchase[];
+}
+
+interface PatternSignal {
+  sku: string;
+  occurrences: number;
+  avg_unit_price_usd: number;
+  last_seller_ens: string;
+  new_unit_price_usd: number;
+  new_seller_ens: string;
+  saving_pct: number;
+  is_better_deal: boolean;
+  is_recurring: boolean;
+  message: string;
 }
 
 interface Quote {
@@ -212,6 +282,9 @@ async function main(): Promise<void> {
   const registry = JSON.parse(
     await readFile("apps/buyer-agent/sellers.json", "utf8"),
   ) as SellerRegistry;
+  const history = JSON.parse(
+    await readFile("apps/buyer-agent/history.json", "utf8"),
+  ) as PurchaseHistory;
 
   console.log(`[buyer] ${buyer.buyer} (${buyer.buyer_ens})`);
   console.log(
@@ -256,6 +329,19 @@ async function main(): Promise<void> {
       `[buyer] winner: ${winner.source_ens} → $${winner.total_usd} ${winner.currency}, ${winner.delivery_days}d`,
     );
 
+    const pattern = detectPattern(
+      history.purchases,
+      need.sku,
+      winner.source_ens ?? "unknown",
+      winner.unit_price_usd,
+    );
+    if (pattern.is_recurring && pattern.is_better_deal) {
+      console.log(`[buyer] 🚨 PATTERN TRIGGER (would ping human via Telegram/WhatsApp):`);
+      console.log(`[buyer]   ${pattern.message}`);
+    } else {
+      console.log(`[buyer] pattern: ${pattern.message}`);
+    }
+
     console.log(`[buyer] policy gate via policy-from-ens…`);
     const policy = (await policyCheck.execute("call-policy", {
       action: "pay_carrier",
@@ -296,6 +382,7 @@ async function main(): Promise<void> {
         need,
         quotes,
         winner: { ens: winner.source_ens, total_usd: winner.total_usd },
+        pattern,
         policy: policy.details.policy,
         escrow: {
           contract: escrowResult.address,

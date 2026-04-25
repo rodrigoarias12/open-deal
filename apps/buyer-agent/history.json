@@ -1,0 +1,41 @@
+{
+  "_comment": "Purchase history for the buyer. In production this is sourced from past audits on 0G Storage by the agent. Hardcoded fixture for the demo.",
+  "purchases": [
+    {
+      "sku": "PAPEL-A4-RES",
+      "seller": "0xfff0000000000000000000000000000000000001",
+      "seller_ens": "old-seller.openagents-treasury.eth",
+      "unit_price_usd": 10.5,
+      "quantity": 8,
+      "total_usd": 84.0,
+      "at": "2026-04-04T11:00:00Z"
+    },
+    {
+      "sku": "PAPEL-A4-RES",
+      "seller": "0xfff0000000000000000000000000000000000001",
+      "seller_ens": "old-seller.openagents-treasury.eth",
+      "unit_price_usd": 10.0,
+      "quantity": 10,
+      "total_usd": 100.0,
+      "at": "2026-04-11T09:30:00Z"
+    },
+    {
+      "sku": "PAPEL-A4-RES",
+      "seller": "0xfff0000000000000000000000000000000000001",
+      "seller_ens": "old-seller.openagents-treasury.eth",
+      "unit_price_usd": 9.8,
+      "quantity": 12,
+      "total_usd": 117.6,
+      "at": "2026-04-18T15:15:00Z"
+    },
+    {
+      "sku": "CARTON-CAJA-30",
+      "seller": "0xfff0000000000000000000000000000000000002",
+      "seller_ens": "boxes-co.openagents-treasury.eth",
+      "unit_price_usd": 1.6,
+      "quantity": 100,
+      "total_usd": 160.0,
+      "at": "2026-04-15T10:00:00Z"
+    }
+  ]
+}
