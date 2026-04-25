@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { readFile } from "node:fs/promises";
-import { Contract, JsonRpcProvider, namehash } from "ethers";
+import { Contract, JsonRpcProvider, Wallet, keccak256, parseEther, toUtf8Bytes } from "ethers";
 import policyPlugin from "../../../plugins/policy-from-ens/src/index.js";
 import auditPlugin from "../../../plugins/audit-to-0g/src/index.js";
 
@@ -34,6 +34,49 @@ const RESOLVER_ABI = [
   "function text(bytes32 node, string key) view returns (string)",
   "function addr(bytes32 node, uint256 coinType) view returns (bytes)",
 ];
+
+// USD → ETH conversion for the demo. Production would call a price oracle
+// (or use real USDC and skip this entirely). 1 USD = 0.00001 ETH keeps the
+// total small enough that 1 demo run costs <0.001 ETH on Sepolia.
+const USD_TO_ETH = 0.00001;
+
+async function lockEscrow(args: {
+  sellerAddress: string;
+  amountUsd: number;
+  sku: string;
+  quantity: number;
+  deadlineDays: number;
+}): Promise<{ orderId: string; amountEth: string; txHash: string; address: string }> {
+  const artifact = JSON.parse(
+    await readFile("contracts/ProcurementEscrow.deployment.json", "utf8"),
+  );
+  const rpc = process.env.SEPOLIA_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com";
+  const provider = new JsonRpcProvider(rpc, 11155111);
+  const signer = new Wallet(process.env.AGENT_PRIVATE_KEY ?? "", provider);
+  const escrow = new Contract(artifact.address, artifact.abi, signer);
+
+  const amountEth = (args.amountUsd * USD_TO_ETH).toFixed(8);
+  const value = parseEther(amountEth);
+  const skuHash = keccak256(toUtf8Bytes(`${args.sku} x${args.quantity}`));
+  const deliveryDeadline = Math.floor(Date.now() / 1000) + args.deadlineDays * 86400;
+  const disputeWindow = 600;
+
+  const tx = await escrow.createOrder(
+    args.sellerAddress,
+    skuHash,
+    deliveryDeadline,
+    disputeWindow,
+    { value },
+  );
+  await tx.wait();
+  const orderId: bigint = await escrow.nextOrderId();
+  return {
+    orderId: orderId.toString(),
+    amountEth,
+    txHash: tx.hash,
+    address: artifact.address,
+  };
+}
 
 async function resolveSellers(
   ensNames: string[],
@@ -228,8 +271,19 @@ async function main(): Promise<void> {
       continue;
     }
 
+    console.log(`[buyer] locking funds in ProcurementEscrow…`);
+    const escrowResult = await lockEscrow({
+      sellerAddress: winner.seller_address,
+      amountUsd: winner.total_usd,
+      sku: winner.sku,
+      quantity: winner.quantity,
+      deadlineDays: winner.delivery_days + 1,
+    });
     console.log(
-      `[buyer] (in v2: createOrder on ProcurementEscrow.sol with $${winner.total_usd} USDC locked, then ping human via WhatsApp/Telegram for approval; for now we record the intent)`,
+      `[buyer]   → order #${escrowResult.orderId}, locked ${escrowResult.amountEth} ETH (mock $${winner.total_usd}), tx ${escrowResult.txHash.slice(0, 16)}…`,
+    );
+    console.log(
+      `[buyer]   → explorer: https://sepolia.etherscan.io/tx/${escrowResult.txHash}`,
     );
 
     console.log(`[buyer] audit to 0G…`);
@@ -243,6 +297,13 @@ async function main(): Promise<void> {
         quotes,
         winner: { ens: winner.source_ens, total_usd: winner.total_usd },
         policy: policy.details.policy,
+        escrow: {
+          contract: escrowResult.address,
+          orderId: escrowResult.orderId,
+          amountEth: escrowResult.amountEth,
+          txHash: escrowResult.txHash,
+          chain: "sepolia",
+        },
       },
     })) as {
       details: {
