@@ -32,11 +32,14 @@ export default function Landing() {
               under it. Every decision signed. Every action audited.
             </p>
             <div className="hero-ctas">
-              <a className="btn btn-primary" href="https://github.com" target="_blank" rel="noreferrer">
-                view the agent <span className="btn-arrow">↗</span>
+              <a className="btn btn-primary" href="/sell">
+                sell on the network <span className="btn-arrow">→</span>
+              </a>
+              <a className="btn" href="/dashboard">
+                buyer dashboard <span className="btn-arrow">→</span>
               </a>
               <a className="btn" href="#loop">
-                read the policy spec <span className="btn-arrow">→</span>
+                how it works <span className="btn-arrow">→</span>
               </a>
             </div>
             <div className="hero-stats">
