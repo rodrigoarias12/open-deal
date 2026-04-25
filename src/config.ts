@@ -7,6 +7,12 @@ export const CHAIN = {
   explorer: "https://sepolia.etherscan.io",
 } as const;
 
+export const MAINNET = {
+  id: 1,
+  name: "mainnet",
+  rpc: process.env.MAINNET_RPC_URL || "https://ethereum-rpc.publicnode.com",
+} as const;
+
 export const NATIVE_ETH = "0x0000000000000000000000000000000000000000";
 
 export const TOKENS = {
