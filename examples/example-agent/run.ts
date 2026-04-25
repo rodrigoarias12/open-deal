@@ -2,6 +2,7 @@ import "dotenv/config";
 import { readFile } from "node:fs/promises";
 import policyPlugin from "../../plugins/policy-from-ens/src/index.js";
 import auditPlugin from "../../plugins/audit-to-0g/src/index.js";
+import payPlugin from "../../plugins/keeperhub-rail/src/index.js";
 
 type Tool = {
   name: string;
@@ -36,16 +37,19 @@ async function main(): Promise<void> {
 
   const policyTools = loadPlugin(policyPlugin as never);
   const auditTools = loadPlugin(auditPlugin as never);
+  const payTools = loadPlugin(payPlugin as never);
 
   const policyCheck = policyTools.find((t) => t.name === "treasury_policy_check");
   const recordAudit = auditTools.find((t) => t.name === "record_audit");
-  if (!policyCheck || !recordAudit) {
+  const khPay = payTools.find((t) => t.name === "kh_pay");
+  if (!policyCheck || !recordAudit || !khPay) {
     throw new Error("plugins did not register expected tools");
   }
   console.log(
-    `[example] plugins loaded: policy-from-ens, audit-to-0g (tools: ${[
+    `[example] plugins loaded: policy-from-ens, audit-to-0g, keeperhub-rail (tools: ${[
       policyCheck.name,
       recordAudit.name,
+      khPay.name,
     ].join(", ")})`,
   );
 
@@ -65,7 +69,21 @@ async function main(): Promise<void> {
     `[example] proposing swap: ${proposedSwapEth} ETH → USDC (idle pre-fund)`,
   );
 
-  console.log("[example] step 1/3 — policy gate via policy-from-ens…");
+  console.log(
+    "[example] step 1/4 — fetch external market context via keeperhub-rail (kh_pay)…",
+  );
+  const ctxResult = (await khPay.execute("call-pay", {
+    url: "https://httpbin.org/json",
+    method: "GET",
+  })) as { details: { ok: boolean; status: number; took_ms: number } };
+  console.log(
+    `  → external fetch ok=${ctxResult.details.ok} status=${ctxResult.details.status} ${ctxResult.details.took_ms}ms`,
+  );
+  console.log(
+    "  (in production: this would be a paid x402 endpoint — sanctions, oracle, logistics quote — auto-paid in USDC)",
+  );
+
+  console.log("[example] step 2/4 — policy gate via policy-from-ens…");
   const policyResult = (await policyCheck.execute("call-policy", {
     action: "swap_to_stable",
     amount_eth: proposedSwapEth,
@@ -82,7 +100,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  console.log("[example] step 2/3 — simulated swap (no real broadcast)…");
+  console.log("[example] step 3/4 — simulated swap (no real broadcast)…");
   const simulatedExecution = {
     swapTxHash: `0x${"deadbeef".repeat(8)}`,
     amountEth: proposedSwapEth,
@@ -91,7 +109,7 @@ async function main(): Promise<void> {
   };
   console.log(`  → simulated tx ${simulatedExecution.swapTxHash}`);
 
-  console.log("[example] step 3/3 — verifiable audit via audit-to-0g…");
+  console.log("[example] step 4/4 — verifiable audit via audit-to-0g…");
   const auditRecord = {
     at: new Date().toISOString(),
     case: "example-agent-tick",
