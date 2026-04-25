@@ -54,9 +54,31 @@ default" for an agent project.
   `"signature" must be a string`. Native-ETH input doesn't need Permit2,
   so allowing `signature` to be omitted (not just nullable) for
   `permitData == null` flows would match the docs' implication.
+- On Sepolia, the same WETH→USDC quote flips between `200 OK` and
+  `404 No quotes available` within seconds for an *identical* request
+  body. Across one batch of swap attempts: 4/8 succeeded, 4/8 returned
+  the 404. Routing API ends up bouncing
+  between the 100bps and 3000bps V3 pools depending on which had
+  liquidity at that instant. For agents (where retry-on-success is
+  expected behavior), a documented "transient on testnets, retry with
+  backoff" note — or, ideally, the API doing one internal retry against
+  the next-best pool before returning 404 — would remove a layer of
+  client-side resilience code that every integrator will end up
+  rewriting.
 
-(Will keep adding observations as I wire in `executeSwap` and the agent
-loop.)
+### What I'd ship next if I were on the Trading API team
+
+- Surface the four chain-detection footguns above directly in the
+  `errorCode` / `detail` payload so the same string isn't reused for
+  "chain unsupported," "no route," "wrong token address," and "pool
+  briefly empty."
+- A `/v1/canonical_tokens?chainId=...` lookup that returns the *exact*
+  WETH/USDC the router treats as canonical for that chain. Right now
+  you discover the right address only by issuing a successful quote
+  and reading it out of the response — which is exactly the request
+  that fails when you have the wrong address.
+
+(Continuing to add observations as I wire in ENS + KeeperHub.)
 
 ## KeeperHub
 
