@@ -43,7 +43,10 @@ export default async function Dashboard() {
       <div className="dash-runbar">
         <div className="left">
           source <strong>{s.recentTicks[0]?.tick.source ?? "—"}</strong> · llm{" "}
-          <strong>{s.llm.provider}</strong> · chain <strong>{s.chain.name}</strong>
+          <strong>
+            {s.recentTicks[0]?.tick.llmModel ?? s.llm.provider}
+          </strong>{" "}
+          · chain <strong>{s.chain.name}</strong>
         </div>
         <RunTickButton />
       </div>
@@ -105,10 +108,15 @@ export default async function Dashboard() {
               {s.policy.source}
             </span>
           </h2>
-          {s.policy.ensName && (
+          {s.policy.ensName ? (
             <div className="dash-row">
               <span className="k">name</span>
               <span className="v">{s.policy.ensName}</span>
+            </div>
+          ) : (
+            <div className="dash-row">
+              <span className="k">override</span>
+              <span className="v" style={{ color: "var(--ink-faint)" }}>set ENS_NAME</span>
             </div>
           )}
           <div className="dash-row">
