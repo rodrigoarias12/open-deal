@@ -1,7 +1,8 @@
 import { parseEther } from "ethers";
-import { NATIVE_ETH, TOKENS } from "../config.js";
+import { NATIVE_ETH, TOKENS, env } from "../config.js";
 import { getBalanceEth, getWallet } from "../chain/client.js";
 import { executeSwap, getQuote } from "../dex/uniswap.js";
+import { loadPolicy, type TreasuryPolicy } from "../ens/policy.js";
 import { llmAsk } from "../llm/client.js";
 import type { AccountingSource, CashState } from "../sources/types.js";
 import { SYSTEM, userPrompt } from "./prompts.js";
@@ -24,6 +25,7 @@ export type Tick = {
   source: string;
   llmProvider: "anthropic" | "bedrock";
   llmModel: string;
+  policy: TreasuryPolicy;
   state: CashState;
   walletAddress: string;
   walletEthBefore: string;
@@ -42,18 +44,56 @@ function parseDecision(text: string): Decision {
   return JSON.parse(stripped.slice(start, end + 1)) as Decision;
 }
 
+function enforcePolicy(
+  decision: Decision,
+  policy: TreasuryPolicy,
+  walletEth: bigint,
+): { allowed: boolean; reason?: string } {
+  if (decision.action !== "swap_to_stable") return { allowed: true };
+  if (!policy.allowedTokens.includes("USDC")) {
+    return { allowed: false, reason: "USDC is not in policy.allowedTokens" };
+  }
+  let requested: bigint;
+  try {
+    requested = parseEther(decision.amount_eth);
+  } catch {
+    return { allowed: false, reason: `invalid amount_eth ${decision.amount_eth}` };
+  }
+  if (requested > parseEther(policy.maxSwapEth)) {
+    return { allowed: false, reason: `amount ${decision.amount_eth} > maxSwapEth ${policy.maxSwapEth}` };
+  }
+  const buffer = parseEther(policy.minBufferEth);
+  if (walletEth - requested < buffer) {
+    return {
+      allowed: false,
+      reason: `would breach minBufferEth ${policy.minBufferEth} (wallet ${walletEth} - swap ${requested} < buffer ${buffer})`,
+    };
+  }
+  return { allowed: true };
+}
+
 export async function runTick(source: AccountingSource): Promise<Tick> {
   const state = await source.fetch();
   const wallet = getWallet();
   const walletEth = await getBalanceEth(wallet.address);
+  const policy = await loadPolicy(env("ENS_NAME") ?? null);
 
   const answer = await llmAsk({
     system: SYSTEM,
-    user: userPrompt({ state, walletAddress: wallet.address, walletEth }),
+    user: userPrompt({ state, walletAddress: wallet.address, walletEth, policy }),
   });
 
-  const decision = parseDecision(answer.text);
+  let decision = parseDecision(answer.text);
   let execution: Execution | null = null;
+
+  const enforcement = enforcePolicy(decision, policy, walletEth);
+  if (!enforcement.allowed) {
+    decision = {
+      action: "hold",
+      amount_eth: "0",
+      reason: `policy override: ${enforcement.reason} (LLM said: ${decision.reason})`,
+    };
+  }
 
   if (decision.action === "swap_to_stable") {
     const amount = parseEther(decision.amount_eth);
@@ -77,6 +117,7 @@ export async function runTick(source: AccountingSource): Promise<Tick> {
     source: source.name,
     llmProvider: answer.provider,
     llmModel: answer.model,
+    policy,
     state,
     walletAddress: wallet.address,
     walletEthBefore: walletEth.toString(),

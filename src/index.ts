@@ -62,6 +62,11 @@ async function runAgentOnce(): Promise<void> {
   try {
     const tick = await runTick(source);
     console.log(`[agent] llm: ${tick.llmProvider} ${tick.llmModel}`);
+    console.log(
+      `[agent] policy: ${tick.policy.source}` +
+        (tick.policy.ensName ? ` (${tick.policy.ensName})` : "") +
+        ` — maxSwap ${tick.policy.maxSwapEth} ETH, minBuffer ${tick.policy.minBufferEth} ETH`,
+    );
     if (tick.decision.action === "swap_to_stable") {
       console.log(`[agent] decision: swap ${tick.decision.amount_eth} ETH → USDC`);
     } else {
