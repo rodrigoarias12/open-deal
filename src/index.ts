@@ -60,9 +60,17 @@ async function runAgentOnce(): Promise<void> {
   const source = pickSource();
   try {
     const tick = await runTick(source);
-    console.log(`[agent] decision: ${tick.decision.action} ${tick.decision.amount.toLocaleString()} ${tick.decision.currency}` +
-      (tick.decision.protocol ? ` @ ${tick.decision.protocol}` : ""));
+    if (tick.decision.action === "swap_to_stable") {
+      console.log(`[agent] decision: swap ${tick.decision.amount_eth} ETH → USDC`);
+    } else {
+      console.log(`[agent] decision: hold`);
+    }
     console.log(`[agent] reason: ${tick.decision.reason}`);
+    if (tick.execution) {
+      console.log(`[agent] tx: ${tick.execution.swapTxHash}`);
+      console.log(`[agent] received: ~${tick.execution.amountUsdc} USDC`);
+      console.log(`[agent] explorer: ${tick.execution.explorerUrl}`);
+    }
     const path = await logTick(tick);
     console.log(`[agent] audit written: ${path}`);
   } catch (e) {

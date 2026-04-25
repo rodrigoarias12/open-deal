@@ -123,8 +123,8 @@ export async function executeSwap(quote: Quote, wallet: Wallet): Promise<SwapRes
     const text = await res.text();
     throw new Error(`Uniswap /swap ${res.status}: ${text}`);
   }
-  const data = await res.json();
-  const swapTx: SwapTransaction = data.swap;
+  const data = (await res.json()) as { swap: SwapTransaction };
+  const swapTx = data.swap;
 
   const tx = await wallet.sendTransaction({
     to: swapTx.to,
