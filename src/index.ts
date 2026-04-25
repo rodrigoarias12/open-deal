@@ -2,7 +2,9 @@ import "dotenv/config";
 import { formatEther } from "ethers";
 import { CHAIN, env } from "./config.js";
 import { getBalanceEth, getBlockNumber, getWallet } from "./chain/client.js";
-import { ask } from "./llm/anthropic.js";
+import { runTick } from "./agent/core.js";
+import { CsvSource } from "./sources/csv.js";
+import { logTick } from "./audit/logger.js";
 
 async function checkChain(): Promise<void> {
   console.log(`\n[chain] ${CHAIN.name} (id ${CHAIN.id}) via ${CHAIN.rpc}`);
@@ -26,26 +28,29 @@ async function checkChain(): Promise<void> {
   }
 }
 
-async function checkLlm(): Promise<void> {
+async function runAgentOnce(): Promise<void> {
   if (!env("ANTHROPIC_API_KEY")) {
-    console.log("\n[llm] ANTHROPIC_API_KEY not set — skipping");
+    console.log("\n[agent] ANTHROPIC_API_KEY not set — skipping agent tick");
     return;
   }
-  console.log("\n[llm] pinging Claude...");
+  console.log("\n[agent] reading fixtures/company.csv and asking Claude...");
+  const source = new CsvSource("fixtures/company.csv");
   try {
-    const answer = await ask(
-      "Reply in exactly one short sentence: what's an autonomous treasury agent?"
-    );
-    console.log(`[llm] ${answer}`);
+    const tick = await runTick(source);
+    console.log(`[agent] decision: ${tick.decision.action} €${tick.decision.amount_eur}` +
+      (tick.decision.protocol ? ` @ ${tick.decision.protocol}` : ""));
+    console.log(`[agent] reason: ${tick.decision.reason}`);
+    const path = await logTick(tick);
+    console.log(`[agent] audit written: ${path}`);
   } catch (e) {
-    console.log(`[llm] error: ${(e as Error).message}`);
+    console.log(`[agent] error: ${(e as Error).message}`);
   }
 }
 
 async function main(): Promise<void> {
-  console.log("openagents-treasury — smoke test");
+  console.log("openagents-treasury — smoke test + agent tick");
   await checkChain();
-  await checkLlm();
+  await runAgentOnce();
   console.log("\ndone.");
 }
 
