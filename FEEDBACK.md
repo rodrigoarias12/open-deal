@@ -82,7 +82,83 @@ default" for an agent project.
 
 ## KeeperHub
 
-_(will be filled in as we integrate)_
+### What I built with KeeperHub
+
+The treasury agent's *outbound HTTP layer* — every call from the agent
+to Uniswap (and tomorrow, anywhere else) — is wrapped with
+`paymentSigner.fetch` from `@keeperhub/wallet`. Today nothing in the
+stack returns 402, so the wrapper is a transparent passthrough. The
+moment any provider charges per-request — premium routing, gated
+endpoints, paid data — the agent pays it inline in USDC, within policy
+bounds (the same `treasury.maxDailyVolumeEth` we read from ENS), with
+zero human in the loop.
+
+Module: `src/payments/keeperhub.ts`. Wallet provisioned via
+`npx @keeperhub/wallet add`:
+
+```
+walletAddress: 0x588C4bD9bB2b1FceD0E5D27E5E9152d1B5f71768
+```
+
+### What worked exceptionally well
+
+- **Account-less provisioning.** `npx @keeperhub/wallet add` returns a
+  signed wallet config in under a second with no signup, no email
+  verification, no wallet-connect ceremony. For a hackathon where you
+  spend the first 30 minutes fighting auth flows for every sponsor, this
+  is the single biggest UX win in the prize pool.
+- **Drop-in `paymentSigner.fetch`.** The API surface is *exactly*
+  `fetch(input, init)`. I replaced `fetch(...)` with `x402fetch(...)`
+  in two lines of `src/dex/uniswap.ts` and the existing test scripts
+  passed unchanged. No mental model shift: if an endpoint returns 200,
+  you get 200; if it returns 402, the SDK pays and retries with the
+  original body and headers preserved.
+- **Type safety end-to-end.** `WalletConfig`, `BalanceSnapshot`,
+  `X402Challenge`, `MppChallenge` — all exported, all narrow. The
+  Turnkey custody / HMAC plumbing is completely opaque, which is
+  exactly what an integrator wants.
+
+### Friction
+
+- **No public x402 testnet endpoint.** This is the *one* thing missing
+  for hackathon UX. To prove the auto-pay loop end-to-end I need (a)
+  to fund a Base mainnet wallet with real USDC, and (b) find a public
+  endpoint that returns 402. I can do (a) cheaply but I'd rather not
+  for a smoke test. Even a single demo endpoint at e.g.
+  `x402-demo.keeperhub.com/echo` that charges 0.001 USDC on Tempo
+  testnet would let every builder land a real "agent paid for this
+  call" tx in their first 10 minutes. (Without it, the auto-pay code
+  path is exercised on every request in this build but only fires
+  hypothetically — the demo can't show a paid 402 yet.)
+- **`docs.keeperhub.com`, `keeperhub.com`, and `app.keeperhub.com`
+  all return 403** to automated fetches (Cloudflare bot mitigation).
+  My agent — which is the literal target audience for the docs —
+  cannot read them. The package README.md is excellent and salvaged
+  the integration; docs being unreachable to bots is a small
+  configuration change away (allow common UA strings, or flag the docs
+  origin as bot-friendly).
+- **`add` overwrites silently.** Running `npx @keeperhub/wallet add`
+  twice generates a fresh wallet and overwrites `~/.keeperhub/wallet.json`
+  with no warning. For a developer iterating, this destroys access to
+  whatever balance was on the previous wallet. Either prompt before
+  overwriting, or have `add` no-op when a config already exists and
+  expose `add --force` for the recreate case.
+- **No payment proof surfaced in the retry Response.** When
+  `paymentSigner.fetch` pays a 402 and returns the post-payment retry
+  Response, there's no obvious way for the caller to *audit* what was
+  paid (amount, tx hash, network) without reaching back into the SDK.
+  For an autonomous agent that has to write everything to an audit
+  log, exposing the payment receipt — e.g. as a `x-keeperhub-receipt`
+  header on the returned Response or via an event hook — would close
+  the loop.
+
+### What I'd ship next if I were on the KeeperHub team
+
+A `npx @keeperhub/wallet pay <url>` CLI that does a full round-trip
+against a sample 402 endpoint and prints the receipt. Builders would
+have proof of working auto-pay before they write a single line of
+integration code. Pair it with the public testnet endpoint above and
+"first agent payment" becomes a sub-five-minute experience.
 
 ## ENS
 
