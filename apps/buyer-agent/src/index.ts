@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { readFile } from "node:fs/promises";
+import { Contract, JsonRpcProvider, namehash } from "ethers";
 import policyPlugin from "../../../plugins/policy-from-ens/src/index.js";
 import auditPlugin from "../../../plugins/audit-to-0g/src/index.js";
 
@@ -20,13 +21,44 @@ interface BuyerConfig {
 
 interface SellerEntry {
   ens: string;
-  name: string;
   endpoint: string;
   address: string;
 }
 
 interface SellerRegistry {
-  sellers: SellerEntry[];
+  sellers: string[];
+}
+
+const RESOLVER_ABI = [
+  "function setText(bytes32 node, string key, string value) external",
+  "function text(bytes32 node, string key) view returns (string)",
+  "function addr(bytes32 node, uint256 coinType) view returns (bytes)",
+];
+
+async function resolveSellers(
+  ensNames: string[],
+  rpc: string,
+): Promise<SellerEntry[]> {
+  const provider = new JsonRpcProvider(rpc);
+  const out: SellerEntry[] = [];
+  for (const ens of ensNames) {
+    const resolver = await provider.getResolver(ens);
+    if (!resolver) {
+      console.log(`[buyer]   × ${ens} → no resolver`);
+      continue;
+    }
+    const [endpoint, addrRaw] = await Promise.all([
+      resolver.getText("endpoint"),
+      resolver.getAddress(),
+    ]);
+    if (!endpoint) {
+      console.log(`[buyer]   × ${ens} → no 'endpoint' text record`);
+      continue;
+    }
+    out.push({ ens, endpoint, address: addrRaw ?? "" });
+    console.log(`[buyer]   ✓ ${ens} → endpoint=${endpoint}, addr=${addrRaw ?? "(none)"}`);
+  }
+  return out;
 }
 
 interface Quote {
@@ -140,8 +172,16 @@ async function main(): Promise<void> {
 
   console.log(`[buyer] ${buyer.buyer} (${buyer.buyer_ens})`);
   console.log(
-    `[buyer] ${buyer.needs.length} pending need(s) · ${registry.sellers.length} seller(s) in registry`,
+    `[buyer] ${buyer.needs.length} pending need(s) · ${registry.sellers.length} seller subname(s) in registry`,
   );
+
+  const ensRpc =
+    process.env.MAINNET_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com";
+  console.log(`[buyer] resolving sellers from ENS (${ensRpc})…`);
+  const sellers = await resolveSellers(registry.sellers, ensRpc);
+  if (sellers.length === 0) {
+    throw new Error("no sellers resolved from ENS — abort");
+  }
 
   const policyTools = loadPlugin(policyPlugin as never);
   const auditTools = loadPlugin(auditPlugin as never);
@@ -156,7 +196,7 @@ async function main(): Promise<void> {
     console.log(`\n[buyer] need: ${need.sku} x${need.quantity} (${need.reason})`);
     console.log(`[buyer] broadcasting ${rfqId}…`);
 
-    const quotes = await broadcastRfq(registry.sellers, rfqId, need, buyer);
+    const quotes = await broadcastRfq(sellers, rfqId, need, buyer);
     if (quotes.length === 0) {
       console.log(`[buyer] no quotes for ${need.sku} — skipping`);
       continue;

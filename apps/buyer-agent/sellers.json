@@ -1,11 +1,6 @@
 {
-  "_comment": "Seller registry. In production, discovered via ENS subname text record 'endpoint'. Hardcoded here for the local demo until subname discovery script lands.",
+  "_comment": "List of seller ENS subnames. Endpoint + address are resolved at runtime from ENS text records (key: 'endpoint') and addr coinType=60. Anyone can register their own subname under .openagents-treasury.eth and become discoverable.",
   "sellers": [
-    {
-      "ens": "seller-acme.openagents-treasury.eth",
-      "name": "Acme Cartonería S.A.",
-      "endpoint": "http://localhost:3030",
-      "address": "0x13aF7f5B2aD2a230d364cc2484380e711fe17AC1"
-    }
+    "seller-acme.openagents-treasury.eth"
   ]
 }
