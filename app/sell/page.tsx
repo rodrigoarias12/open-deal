@@ -52,7 +52,7 @@ const SAMPLE_CATALOG = {
 export default function SellPage() {
   const [storeName, setStoreName] = useState("");
   const [email, setEmail] = useState("");
-  const [endpoint, setEndpoint] = useState("http://localhost:3030");
+  const [endpoint, setEndpoint] = useState("https://nanoprocure.vercel.app/api/seller/__SUBNAME__/rfq");
   const [catalogText, setCatalogText] = useState(
     JSON.stringify(SAMPLE_CATALOG, null, 2),
   );
@@ -285,7 +285,7 @@ export default function SellPage() {
               type="url"
               value={endpoint}
               onChange={(e) => setEndpoint(e.target.value)}
-              placeholder="http://localhost:3030"
+              placeholder="https://nanoprocure.vercel.app/api/seller/__SUBNAME__/rfq"
               disabled={submitting}
             />
             <div className="hint">

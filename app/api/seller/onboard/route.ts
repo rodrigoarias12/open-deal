@@ -75,7 +75,20 @@ export async function POST(req: Request): Promise<NextResponse> {
     );
   }
   const subname = `${label}.${PARENT}`;
-  const endpoint = body.endpoint || "http://localhost:3030";
+  // If the form left the default __SUBNAME__ placeholder, expand it to the
+  // hosted endpoint for this specific seller. Otherwise use whatever the
+  // operator typed (self-hosted seller).
+  let endpoint = body.endpoint || "";
+  if (!endpoint || endpoint.includes("__SUBNAME__")) {
+    const proto =
+      process.env.VERCEL_URL || process.env.NEXT_PUBLIC_BASE_URL
+        ? "https"
+        : new URL(req.url).protocol.replace(":", "");
+    const host =
+      process.env.NEXT_PUBLIC_BASE_URL ||
+      (process.env.VERCEL_URL ? process.env.VERCEL_URL : new URL(req.url).host);
+    endpoint = `${proto}://${host}/api/seller/${label}/rfq`;
+  }
 
   const pk = process.env.AGENT_PRIVATE_KEY;
   if (!pk) {
