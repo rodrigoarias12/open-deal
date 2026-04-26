@@ -973,3 +973,79 @@ footer {
   .footer-grid { grid-template-columns: 1fr; }
   .hero-stats { grid-template-columns: 1fr; gap: 16px; }
 }
+
+/* Project Deal precedent comparison table */
+#precedent {
+  padding-top: 4rem;
+  padding-bottom: 4rem;
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+}
+.precedent-table {
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  border-radius: 8px;
+  overflow: hidden;
+  background: color-mix(in srgb, currentColor 2%, transparent);
+}
+.precedent-row {
+  display: grid;
+  grid-template-columns: 1.2fr 2fr 2fr;
+  border-top: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+}
+.precedent-row:first-child {
+  border-top: none;
+}
+.precedent-row > div {
+  padding: 0.85rem 1rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+.precedent-head {
+  background: color-mix(in srgb, currentColor 6%, transparent);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.75rem !important;
+  color: color-mix(in srgb, currentColor 65%, transparent);
+}
+.precedent-head > div {
+  font-size: 0.75rem;
+}
+.precedent-axis {
+  font-weight: 600;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.825rem;
+  border-right: 1px solid color-mix(in srgb, currentColor 8%, transparent);
+}
+.precedent-cell {
+  position: relative;
+}
+.precedent-cell-them {
+  color: color-mix(in srgb, currentColor 70%, transparent);
+  border-right: 1px solid color-mix(in srgb, currentColor 8%, transparent);
+}
+.precedent-cell-us-edge {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+.precedent-cell-us-match {
+  background: color-mix(in srgb, currentColor 3%, transparent);
+}
+.precedent-edge {
+  display: inline-block;
+  width: 1.4em;
+  font-weight: 700;
+  color: var(--accent);
+  margin-right: 0.35em;
+}
+.precedent-cell-us-match .precedent-edge {
+  color: color-mix(in srgb, currentColor 50%, transparent);
+}
+@media (max-width: 720px) {
+  .precedent-row {
+    grid-template-columns: 1fr;
+  }
+  .precedent-axis,
+  .precedent-cell-them {
+    border-right: none;
+    border-bottom: 1px solid color-mix(in srgb, currentColor 8%, transparent);
+  }
+}

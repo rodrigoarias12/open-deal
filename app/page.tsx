@@ -10,6 +10,7 @@ import {
   ONCHAIN_ARTIFACTS,
   PILLARS,
   PLUGINS,
+  PROJECT_DEAL,
   SPONSORS,
 } from "./lib/landing-data";
 
@@ -66,6 +67,73 @@ export default function Landing() {
             </div>
           </div>
           <HeroTerminal />
+        </div>
+      </section>
+
+      <section id="precedent">
+        <div className="container">
+          <div className="section-tag">the precedent</div>
+          <h2 className="section-title">
+            {PROJECT_DEAL.headline}
+          </h2>
+          <p className="section-lede">
+            <a href={PROJECT_DEAL.url} target="_blank" rel="noreferrer">
+              {PROJECT_DEAL.source} ↗
+            </a>
+            . {PROJECT_DEAL.punchline}
+          </p>
+
+          <div
+            className="hero-stats"
+            style={{ marginTop: "2rem", marginBottom: "2.5rem" }}
+          >
+            {PROJECT_DEAL.stats.map((s) => (
+              <div key={s.label}>
+                <div className="hero-stat-label">{s.label}</div>
+                <div className="hero-stat-value" style={{ fontSize: "1.5rem" }}>
+                  {s.num}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="precedent-table">
+            <div className="precedent-row precedent-head">
+              <div>Axis</div>
+              <div>Anthropic Project Deal</div>
+              <div>Agentic ERP</div>
+            </div>
+            {PROJECT_DEAL.comparison.map((row) => (
+              <div className="precedent-row" key={row.axis}>
+                <div className="precedent-axis">{row.axis}</div>
+                <div className="precedent-cell precedent-cell-them">
+                  {row.anthropic}
+                </div>
+                <div
+                  className={
+                    "precedent-cell " +
+                    (row.edge === "extension"
+                      ? "precedent-cell-us-edge"
+                      : "precedent-cell-us-match")
+                  }
+                >
+                  <span className="precedent-edge">
+                    {row.edge === "extension" ? "+" : "="}
+                  </span>
+                  {row.ours}
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="section-lede" style={{ marginTop: "2rem" }}>
+            Same pattern, two different runtimes. Their experiment validated
+            that humans accept agent-mediated trade. Ours adds the trust
+            property B2B procurement actually needs:{" "}
+            <span className="mono" style={{ color: "var(--accent)" }}>
+              every decision verifiable from chain state alone
+            </span>
+            .
+          </p>
         </div>
       </section>
 

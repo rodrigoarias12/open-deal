@@ -59,6 +59,13 @@ export type Plugin = {
   src: string;
 };
 
+export type ProjectDealRow = {
+  axis: string;
+  anthropic: string;
+  ours: string;
+  edge: "match" | "extension";
+};
+
 export type Artifact = { name: string; addr: string; chain: string; href: string };
 
 export type TerminalLine =
@@ -633,3 +640,68 @@ export const FAQS: Faq[] = [
     a: "Sepolia for the hackathon (Apr 24 — May 6, 2026). Mainnet is a config flip in <code>src/config.ts</code> + <code>contracts/*.deployment.json</code> + a fresh ENS name — not a rewrite. The plugins are chain-agnostic: <code>policy-from-ens</code> reads any ENS-resolvable name on any EVM chain; <code>audit-to-0g</code> works on 0G Galileo today and any 0G mainnet release; <code>keeperhub-rail</code> is Base + Tempo regardless.",
   },
 ];
+
+// ─────────────────────────────────────────────────────────────────────────
+// "The precedent" — Anthropic Project Deal (Apr 2026) ran the
+// in-office, off-chain, C2C version of this idea. We took it open,
+// onchain, B2B-grade.
+// ─────────────────────────────────────────────────────────────────────────
+
+export const PROJECT_DEAL = {
+  source: "Anthropic Project Deal · April 2026",
+  url: "https://www.anthropic.com/features/project-deal",
+  headline:
+    "Anthropic just proved Claude agents can negotiate on humans' behalf — and that humans like it.",
+  stats: [
+    { num: "69", label: "employees represented by Claude agents" },
+    { num: "186", label: "deals closed in 1 week" },
+    { num: "$4K", label: "transaction value" },
+    { num: "100%", label: "willing to pay for similar service" },
+  ],
+  punchline:
+    "Their experiment ran inside one office, on Slack, paid out via gift cards. We made it open, onchain, B2B-grade — anyone with an ENS name joins, ERPs feed real needs, and every decision is verifiable from chain state alone.",
+  comparison: [
+    {
+      axis: "Network",
+      anthropic: "1 office, 69 invited employees",
+      ours: "Open, permissionless — anyone with an ENS name",
+      edge: "extension",
+    },
+    {
+      axis: "Onboarding",
+      anthropic: "Claude interviews each user (chat-based intake)",
+      ours: "ENS text records — onchain, third-party-auditable",
+      edge: "extension",
+    },
+    {
+      axis: "Discovery",
+      anthropic: "4 parallel Slack channels",
+      ours: "ENS subname registry + HTTP fan-out RFQ",
+      edge: "extension",
+    },
+    {
+      axis: "Negotiation",
+      anthropic: "Listings + offers + counteroffers + close",
+      ours: "Single-shot signed quote (multi-round on roadmap)",
+      edge: "match",
+    },
+    {
+      axis: "Settlement",
+      anthropic: "deal_id in Slack + post-experiment gift cards",
+      ours: "USDC escrow on Sepolia, dispute window onchain",
+      edge: "extension",
+    },
+    {
+      axis: "Audit",
+      anthropic: "Internal logs, off-chain",
+      ours: "0G Storage + 0G Chain anchor — verifiable by any party",
+      edge: "extension",
+    },
+    {
+      axis: "Domain",
+      anthropic: "C2C — employees swap personal items",
+      ours: "B2B — Odoo / Excel / SAP feed real procurement needs",
+      edge: "extension",
+    },
+  ] satisfies ProjectDealRow[],
+};

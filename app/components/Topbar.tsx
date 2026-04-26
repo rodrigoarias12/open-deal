@@ -43,8 +43,8 @@ export function Topbar() {
           </span>
         </a>
         <nav className="topbar-nav">
+          <a href="#precedent">precedent</a>
           <a href="#loop">the loop</a>
-          <a href="#why">why</a>
           <a href="#framework">framework</a>
           <a href="#demo">demo</a>
           <a href="#audit">audit</a>
