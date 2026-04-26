@@ -44,7 +44,22 @@ export async function loadDashboardState(): Promise<DashboardState> {
     warnings.push("keeperhub wallet not provisioned (run `npx @keeperhub/wallet add`)");
   }
 
-  const policy = await loadPolicy(env("ENS_NAME") ?? null);
+  let policy: TreasuryPolicy;
+  try {
+    policy = await loadPolicy(env("ENS_NAME") ?? null);
+  } catch (e) {
+    warnings.push(`ENS policy load failed: ${(e as Error).message}`);
+    policy = {
+      maxSwapEth: "0.01",
+      minBufferEth: "0.05",
+      allowedTokens: ["USDC"],
+      maxDailyVolumeEth: "0.05",
+      cooldownSeconds: 3600,
+      source: "defaults",
+      ensName: env("ENS_NAME") ?? null,
+      raw: {},
+    };
+  }
 
   const recentTicks: DashboardState["recentTicks"] = [];
   try {
