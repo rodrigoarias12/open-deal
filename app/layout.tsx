@@ -2,9 +2,33 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "openagents-treasury — autonomous treasury agent",
+  metadataBase: new URL("https://agentic-erp-eth.vercel.app"),
+  title: "Agentic ERP — autonomous B2B procurement",
   description:
-    "An autonomous agent that reads your books, follows your onchain policy, and executes under it. Every decision signed. Every action audited.",
+    "Open framework for autonomous, trust-minimized B2B agents. Identity on ENS, memory on 0G, escrow on Sepolia. Buyer and seller agents discover each other and settle without a human in every step.",
+  openGraph: {
+    title: "Agentic ERP",
+    description:
+      "Two autonomous agents trading B2B, with receipts. Identity on ENS, memory on 0G, escrow on Sepolia.",
+    url: "https://agentic-erp-eth.vercel.app",
+    siteName: "Agentic ERP",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 1200,
+        alt: "Agentic ERP",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Agentic ERP",
+    description:
+      "Two autonomous agents trading B2B, with receipts. ENS · 0G · KeeperHub.",
+    images: ["/og-image.png"],
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

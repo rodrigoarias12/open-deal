@@ -31,7 +31,13 @@ export function Topbar() {
     <div className="topbar">
       <div className="container topbar-inner">
         <a href="#" className="brand">
-          <span className="brand-mark" />
+          <img
+            src="/logo.png"
+            alt="Agentic ERP"
+            width={28}
+            height={28}
+            style={{ display: "block", borderRadius: 6 }}
+          />
           <span className="brand-name">
             agentic<span className="dim"> </span>erp
           </span>
