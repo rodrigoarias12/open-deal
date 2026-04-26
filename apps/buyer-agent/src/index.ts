@@ -6,6 +6,7 @@ import auditPlugin from "../../../plugins/audit-to-0g/src/index.js";
 import { OdooClient } from "../../../src/sources/odoo.js";
 import { OdooInventorySource } from "../../../src/sources/odoo-inventory.js";
 import { TelegramApprover, type ApprovalResult } from "../../../src/notify/telegram.js";
+import { readHistoryFrom0G } from "./history-from-0g.js";
 
 interface Need {
   sku: string;
@@ -324,9 +325,48 @@ async function main(): Promise<void> {
   const registry = JSON.parse(
     await readFile("apps/buyer-agent/sellers.json", "utf8"),
   ) as SellerRegistry;
-  const history = JSON.parse(
+  // History sourcing strategy:
+  //   - "seed" history (history.json) = legacy purchases from before the
+  //     agent was deployed onchain (vendor relationships the operator
+  //     already had). Loaded as the baseline.
+  //   - "live" history (0G AuditAnchor + 0G Storage) = every purchase
+  //     this agent has made since it started. Sourced from immutable
+  //     onchain anchors + content-addressed storage.
+  //   - The merged set is what the pattern detector reasons over.
+  let history: PurchaseHistory;
+  const seed = JSON.parse(
     await readFile("apps/buyer-agent/history.json", "utf8"),
   ) as PurchaseHistory;
+  console.log(
+    `[buyer] history seed (legacy fixture): ${seed.purchases.length} purchases`,
+  );
+  try {
+    console.log(`[buyer] reading live history from 0G AuditAnchor…`);
+    const anchorJson = JSON.parse(
+      await readFile("contracts/AuditAnchor.deployment.json", "utf8"),
+    );
+    const result = await readHistoryFrom0G({
+      rpc: process.env.ZG_RPC_URL || "https://evmrpc-testnet.0g.ai",
+      indexerUrl:
+        process.env.ZG_INDEXER_URL ||
+        "https://indexer-storage-testnet-turbo.0g.ai",
+      anchorAddress: process.env.ZG_AUDIT_ANCHOR || anchorJson.address,
+      agentAddress: buyer.buyer_address,
+      limit: 30,
+    });
+    console.log(
+      `[buyer]   ✓ recovered ${result.purchases.length} live purchase(s) from ${result.sourceAnchors} anchor(s) on 0G`,
+    );
+    history = { purchases: [...seed.purchases, ...result.purchases] };
+  } catch (e) {
+    console.log(
+      `[buyer]   ⚠ 0G history unavailable (${(e as Error).message}) — using seed only`,
+    );
+    history = seed;
+  }
+  console.log(
+    `[buyer] effective history: ${history.purchases.length} purchases (seed + live)`,
+  );
 
   console.log(`[buyer] ${buyer.buyer} (${buyer.buyer_ens})`);
 
