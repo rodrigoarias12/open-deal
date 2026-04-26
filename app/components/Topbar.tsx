@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-const STORAGE_KEY = "oat-theme";
+const STORAGE_KEY = "agentic-erp-theme";
 
 export function Topbar() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
@@ -33,12 +33,13 @@ export function Topbar() {
         <a href="#" className="brand">
           <span className="brand-mark" />
           <span className="brand-name">
-            openagents<span className="dim">-</span>treasury
+            agentic<span className="dim"> </span>erp
           </span>
         </a>
         <nav className="topbar-nav">
           <a href="#loop">the loop</a>
           <a href="#why">why</a>
+          <a href="#framework">framework</a>
           <a href="#demo">demo</a>
           <a href="#audit">audit</a>
           <a href="#faq">faq</a>

@@ -9,7 +9,7 @@ export function AuditList() {
     <div className="audit-list">
       {AUDIT_FIXTURES.map((a, i) => {
         const isOpen = open === i;
-        const broadcast = !!a.decision.swap;
+        const exec = a.kind === "exec";
         return (
           <div key={i} className={"audit-item " + (isOpen ? "open" : "")}>
             <button
@@ -18,19 +18,11 @@ export function AuditList() {
             >
               <span className="audit-item-time">{a.ts}</span>
               <span className="audit-item-decision">
-                {a.decision.swap ? (
-                  <>
-                    <span className="em">swap</span> {a.decision.swap} → {a.decision.to}
-                  </>
-                ) : (
-                  <>
-                    <span className="pol">hold</span> {a.decision.hold}
-                  </>
-                )}
+                <span className={exec ? "em" : "pol"}>{a.label}</span> {a.decision}
               </span>
               <span className="audit-item-tx">{a.tx}</span>
-              <span className={"audit-item-status " + (broadcast ? "" : "blocked")}>
-                {broadcast ? "broadcast" : "blocked"}
+              <span className={"audit-item-status " + (exec ? "" : "blocked")}>
+                {exec ? "anchored" : "blocked"}
               </span>
               <span className="audit-item-caret">›</span>
             </button>

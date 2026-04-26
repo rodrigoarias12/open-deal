@@ -13,8 +13,9 @@ export function HeroTerminal() {
     function step() {
       if (cancelled) return;
       if (i >= TERMINAL_SCRIPT.length) return;
-      setLines((prev) => [...prev, TERMINAL_SCRIPT[i]]);
-      const delay = TERMINAL_SCRIPT[i]?.t === "section" ? 380 : 240;
+      const line = TERMINAL_SCRIPT[i];
+      setLines((prev) => [...prev, line]);
+      const delay = line.t === "section" ? 380 : 240;
       i++;
       setTimeout(step, delay);
     }
@@ -37,19 +38,19 @@ export function HeroTerminal() {
             <span className="terminal-dot" />
             <span className="terminal-dot" />
           </div>
-          <span>oat@sepolia ~ tick</span>
+          <span>buyer-agent ~ tick</span>
         </div>
         <div className="terminal-status">live</div>
       </div>
       <div className="terminal-body" ref={bodyRef}>
-        {lines.map((l, i) => renderLine(l, i))}
+        {lines.map((l, i) => (l ? renderLine(l, i) : null))}
         <div className="term-line">
           <span className="term-cursor" />
         </div>
       </div>
       <div className="terminal-foot">
-        <span>tick: 01HW8X4Q…2P</span>
-        <span>signer: 0x9f31…02ae</span>
+        <span>signer: 0x13aF…7AC1</span>
+        <span>policy: openagents-treasury.eth</span>
       </div>
     </div>
   );

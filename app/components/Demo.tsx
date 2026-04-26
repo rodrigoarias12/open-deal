@@ -3,15 +3,16 @@
 import { useEffect, useState } from "react";
 import { DEMO } from "../lib/landing-data";
 
-const STEP_DELAYS = [900, 700, 1400, 1100, 700];
+const STEP_DELAYS = [800, 900, 1400, 700, 1100, 1000];
+const N_STEPS = DEMO.steps.length;
 
 export function Demo() {
-  const [step, setStep] = useState(-1); // -1 idle, 0..4 active, 5 done
+  const [step, setStep] = useState(-1); // -1 idle, 0..N-1 active, N done
   const [running, setRunning] = useState(false);
 
   useEffect(() => {
     if (!running) return;
-    if (step >= 5) {
+    if (step >= N_STEPS) {
       setRunning(false);
       return;
     }
@@ -21,7 +22,7 @@ export function Demo() {
 
   const promptVisible = step >= 2;
   const outputVisible = step >= 3;
-  const done = step >= 5;
+  const done = step >= N_STEPS;
 
   function run() {
     setStep(0);
@@ -99,9 +100,11 @@ export function Demo() {
       </div>
       <div className="demo-foot">
         <span>
-          {done ? "tx 0x8d3f4a…f607 · audit/2026-04-25T14-02-33Z.json" : "ready · click run tick"}
+          {done
+            ? "escrow tx 0xa42b…91d3 · 0G anchor index 14"
+            : "ready · click run tick"}
         </span>
-        <span>{done ? "✓ tick complete · 6.2s" : running ? "…" : "idle"}</span>
+        <span>{done ? "✓ tick complete · 8.4s" : running ? "…" : "idle"}</span>
       </div>
     </div>
   );

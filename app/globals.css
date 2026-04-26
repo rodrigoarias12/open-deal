@@ -311,7 +311,7 @@ section { padding: 120px 0; border-bottom: 1px solid var(--line); }
 /* ----- LOOP ----- */
 .loop {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 0;
   border: 1px solid var(--line-2);
   background: var(--bg-elev);
@@ -619,7 +619,7 @@ section { padding: 120px 0; border-bottom: 1px solid var(--line); }
 /* ----- SPONSORS ----- */
 .sponsors {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   border: 1px solid var(--line-2);
 }
 .sponsor {
