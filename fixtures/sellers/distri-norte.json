@@ -1,0 +1,13 @@
+{
+  "storeName": "Distri Norte SRL",
+  "email": "comercial@distrinorte.com.ar",
+  "catalog": {
+    "seller": "Distri Norte SRL",
+    "currency": "USDC",
+    "items": [
+      {"sku":"PAPEL-A4-RES","name":"Papel A4 (resma 500h)","unit_price_usd":7.00,"stock":180,"delivery_days":3},
+      {"sku":"CARTON-CAJA-30","name":"Caja corrugada 30x20","unit_price_usd":1.00,"stock":900,"delivery_days":2},
+      {"sku":"CINTA-EMB-50M","name":"Cinta embalaje 50m transparente","unit_price_usd":3.50,"stock":420,"delivery_days":2}
+    ]
+  }
+}

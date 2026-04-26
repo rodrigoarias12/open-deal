@@ -1,0 +1,13 @@
+{
+  "storeName": "Papelera del Sur",
+  "email": "ventas@papeleradelsur.com",
+  "catalog": {
+    "seller": "Papelera del Sur SA",
+    "currency": "USDC",
+    "items": [
+      {"sku":"PAPEL-A4-RES","name":"Papel A4 ecológico (resma)","unit_price_usd":5.90,"stock":80,"delivery_days":4},
+      {"sku":"SOBRES-MAN-25","name":"Sobres manila 25 (pack 100)","unit_price_usd":4.20,"stock":300,"delivery_days":2},
+      {"sku":"TINTA-NEG-XL","name":"Tinta negra XL premium","unit_price_usd":19.50,"stock":40,"delivery_days":4}
+    ]
+  }
+}

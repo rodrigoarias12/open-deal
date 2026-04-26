@@ -6,9 +6,23 @@
     {
       "sku": "PAPEL-A4-RES",
       "quantity": 10,
-      "max_unit_price_usd": 8.0,
+      "max_unit_price_usd": 8.00,
       "deadline_days": 5,
       "reason": "office consumables — low stock detected in Odoo"
+    },
+    {
+      "sku": "CARTON-CAJA-30",
+      "quantity": 50,
+      "max_unit_price_usd": 1.50,
+      "deadline_days": 3,
+      "reason": "shipping packaging — restock for outbound orders"
+    },
+    {
+      "sku": "TINTA-NEG-XL",
+      "quantity": 5,
+      "max_unit_price_usd": 20.00,
+      "deadline_days": 7,
+      "reason": "printer supplies — finance team request"
     }
   ]
 }

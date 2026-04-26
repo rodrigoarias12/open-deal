@@ -1,0 +1,12 @@
+{
+  "storeName": "TechSupply MX",
+  "email": "[email protected]",
+  "catalog": {
+    "seller": "TechSupply Suministros",
+    "currency": "USDC",
+    "items": [
+      {"sku":"TINTA-NEG-XL","name":"Cartucho tinta negra XL OEM","unit_price_usd":16.50,"stock":120,"delivery_days":2},
+      {"sku":"PAPEL-A3-RES","name":"Papel A3 (resma 500h, 80g)","unit_price_usd":8.00,"stock":50,"delivery_days":4}
+    ]
+  }
+}

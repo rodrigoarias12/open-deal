@@ -80,14 +80,15 @@ export async function POST(req: Request): Promise<NextResponse> {
   // operator typed (self-hosted seller).
   let endpoint = body.endpoint || "";
   if (!endpoint || endpoint.includes("__SUBNAME__")) {
-    const proto =
-      process.env.VERCEL_URL || process.env.NEXT_PUBLIC_BASE_URL
-        ? "https"
-        : new URL(req.url).protocol.replace(":", "");
+    // Default to the project's canonical alias. We do NOT use
+    // process.env.VERCEL_URL because that's the deployment-specific URL
+    // (e.g. agentic-92pqtldc9-...vercel.app) which is gated by Vercel
+    // Deployment Protection — agents calling it get the auth HTML wall
+    // instead of the JSON quote.
     const host =
-      process.env.NEXT_PUBLIC_BASE_URL ||
-      (process.env.VERCEL_URL ? process.env.VERCEL_URL : new URL(req.url).host);
-    endpoint = `${proto}://${host}/api/seller/${label}/rfq`;
+      process.env.NEXT_PUBLIC_BASE_URL?.replace(/^https?:\/\//, "") ||
+      "agentic-erp-eth.vercel.app";
+    endpoint = `https://${host}/api/seller/${label}/rfq`;
   }
 
   const pk = process.env.AGENT_PRIVATE_KEY;

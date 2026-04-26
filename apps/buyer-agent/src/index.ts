@@ -264,7 +264,13 @@ async function broadcastRfq(
 ): Promise<Quote[]> {
   const quotes: Quote[] = [];
   for (const seller of sellers) {
-    const url = `${seller.endpoint}/rfq`;
+    // The 'endpoint' text record is the full RFQ URL (per
+    // procurement.discovery.v1). Don't append /rfq — onboarding via
+    // /sell sets it as ".../api/seller/<label>/rfq", and self-hosted
+    // sellers should set their own full URL too.
+    const url = seller.endpoint.endsWith("/rfq")
+      ? seller.endpoint
+      : `${seller.endpoint.replace(/\/+$/, "")}/rfq`;
     console.log(`[buyer]   → POST ${url}`);
     try {
       const resp = await fetch(url, {

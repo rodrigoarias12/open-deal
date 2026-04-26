@@ -1,0 +1,13 @@
+{
+  "storeName": "Box Master",
+  "email": "pedidos@boxmaster.mx",
+  "catalog": {
+    "seller": "Box Master Empaques",
+    "currency": "USDC",
+    "items": [
+      {"sku":"CARTON-CAJA-30","name":"Caja cartón doble pared 30x20x15","unit_price_usd":0.95,"stock":3000,"delivery_days":2},
+      {"sku":"CINTA-EMB-50M","name":"Cinta packing reforzada 50m","unit_price_usd":3.20,"stock":600,"delivery_days":1},
+      {"sku":"BURBUJA-1M","name":"Plástico burbuja 1m x 50m","unit_price_usd":5.00,"stock":150,"delivery_days":2}
+    ]
+  }
+}
