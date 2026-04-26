@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { normaliseSheet } from "../lib/catalog-normalize";
 
 interface OnboardEvent {
   step: string;
@@ -61,19 +62,63 @@ export default function SellPage() {
   const [result, setResult] = useState<OnboardResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  async function ingestFile(file: File): Promise<void> {
+    setFileName(file.name);
+    setError(null);
+    const lower = file.name.toLowerCase();
+
+    if (lower.endsWith(".json")) {
+      const text = await file.text();
+      setCatalogText(text);
+      return;
+    }
+
+    if (lower.endsWith(".xlsx") || lower.endsWith(".xls")) {
+      try {
+        // Lazy-load xlsx so we don't bloat the initial page bundle.
+        const XLSX = await import("xlsx");
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: "array" });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+          header: 1,
+          raw: true,
+        });
+        const result = normaliseSheet(rows);
+        if (!result.ok) {
+          setError(`xlsx parse failed: ${result.error ?? "unknown"}`);
+          setCatalogText("");
+          return;
+        }
+        const detected = result.detectedHeaders
+          ?.map((h) => `${h.raw}→${h.canonical}`)
+          .join(", ");
+        const catalog = {
+          seller: storeName || file.name.replace(/\.(xlsx|xls)$/i, ""),
+          currency: "USDC",
+          items: result.items,
+          _ingested_from: file.name,
+          _detected_columns: detected,
+        };
+        setCatalogText(JSON.stringify(catalog, null, 2));
+      } catch (e) {
+        setError(`xlsx read failed: ${(e as Error).message}`);
+      }
+      return;
+    }
+
+    setError(`unsupported file type: ${file.name}. Use .json, .xlsx or .xls`);
+  }
+
   function onFileChange(e: React.ChangeEvent<HTMLInputElement>): void {
     const file = e.target.files?.[0];
-    if (!file) return;
-    setFileName(file.name);
-    file.text().then((text) => setCatalogText(text));
+    if (file) void ingestFile(file);
   }
 
   function onDrop(e: React.DragEvent<HTMLDivElement>): void {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
-    if (!file) return;
-    setFileName(file.name);
-    file.text().then((text) => setCatalogText(text));
+    if (file) void ingestFile(file);
   }
 
   async function onSubmit(e: React.FormEvent): Promise<void> {
@@ -295,7 +340,7 @@ export default function SellPage() {
           </label>
 
           <label className="label-block">
-            <div className="label">Catalog (drop a JSON file or paste)</div>
+            <div className="label">Catalog (drop your .xlsx, .json or paste below)</div>
             <div
               className="dropzone"
               onDragOver={(e) => e.preventDefault()}
@@ -303,7 +348,7 @@ export default function SellPage() {
             >
               <input
                 type="file"
-                accept=".json,application/json"
+                accept=".json,.xlsx,.xls,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 onChange={onFileChange}
                 disabled={submitting}
               />
