@@ -5,6 +5,7 @@ import policyPlugin from "../../../plugins/policy-from-ens/src/index.js";
 import auditPlugin from "../../../plugins/audit-to-0g/src/index.js";
 import { OdooClient } from "../../../src/sources/odoo.js";
 import { OdooInventorySource } from "../../../src/sources/odoo-inventory.js";
+import { TelegramApprover, type ApprovalResult } from "../../../src/notify/telegram.js";
 
 interface Need {
   sku: string;
@@ -378,9 +379,30 @@ async function main(): Promise<void> {
       winner.source_ens ?? "unknown",
       winner.unit_price_usd,
     );
+    let approval: ApprovalResult | null = null;
     if (pattern.is_recurring && pattern.is_better_deal) {
-      console.log(`[buyer] 🚨 PATTERN TRIGGER (would ping human via Telegram/WhatsApp):`);
+      console.log(`[buyer] 🚨 PATTERN TRIGGER — pinging human:`);
       console.log(`[buyer]   ${pattern.message}`);
+      if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
+        const tg = new TelegramApprover({
+          token: process.env.TELEGRAM_BOT_TOKEN,
+          chatId: process.env.TELEGRAM_CHAT_ID,
+        });
+        console.log(`[buyer] sending approval request to Telegram…`);
+        approval = await tg.requestApproval({
+          title: `Mejor oferta para ${need.sku}`,
+          summary: pattern.message,
+          amount_usd: winner.total_usd,
+          timeoutMs: 90_000,
+        });
+        console.log(`[buyer]   → ${approval.approved ? "✅ APPROVED" : "✖ NOT APPROVED"} (${approval.reason})`);
+        if (!approval.approved) {
+          console.log(`[buyer] human did not approve — skipping ${need.sku}`);
+          continue;
+        }
+      } else {
+        console.log(`[buyer]   (TELEGRAM_BOT_TOKEN/CHAT_ID not set — skipping human prompt, auto-proceeding for demo)`);
+      }
     } else {
       console.log(`[buyer] pattern: ${pattern.message}`);
     }
@@ -426,6 +448,7 @@ async function main(): Promise<void> {
         quotes,
         winner: { ens: winner.source_ens, total_usd: winner.total_usd },
         pattern,
+        approval,
         policy: policy.details.policy,
         escrow: {
           contract: escrowResult.address,
