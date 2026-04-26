@@ -1,9 +1,9 @@
-# NanoProcure Protocol — v0.1
+# Agentic ERP Protocol — v0.1
 
 > **Open standard for autonomous B2B procurement on Ethereum.** Anyone can
 > implement either side of this protocol — buyer or seller — in any language,
 > on any chain that has the canonical ENS registry. Our `apps/` and the
-> hosted endpoints at `nanoprocure.vercel.app` are *one* implementation, not
+> hosted endpoints at `agentic-erp-eth.vercel.app` are *one* implementation, not
 > the only one.
 
 The protocol normalizes 5 things so a buyer agent built by team A can find,
@@ -193,7 +193,7 @@ storage, then anchored on a chain.
 ```json
 {
   "$schema": "procurement.audit.v1",
-  "case": "nanoprocure-rfq-decision",
+  "case": "agentic-erp-rfq-decision",
   "at": "2026-04-25T18:31:00.000Z",
   "buyer": "Paydece S.A. (demo)",
   "rfq_id": "rfq-…",
@@ -232,7 +232,7 @@ Given a chain anchor `(cidRoot, policyHash, timestamp, agent)`, a third party ca
 
 ## Conformance levels
 
-A NanoProcure-conformant agent is **L1**, **L2**, or **L3**:
+A Agentic ERP-conformant agent is **L1**, **L2**, or **L3**:
 
 | Level | What it does |
 |---|---|
@@ -242,7 +242,7 @@ A NanoProcure-conformant agent is **L1**, **L2**, or **L3**:
 
 Reference implementations in this repo are L3 on both sides
 (`apps/buyer-agent`, `apps/seller-agent`) and on the hosted endpoint at
-`nanoprocure.vercel.app/api/seller/<subname>/rfq`.
+`agentic-erp-eth.vercel.app/api/seller/<subname>/rfq`.
 
 ---
 

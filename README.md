@@ -1,4 +1,4 @@
-# openagents-treasury → NanoProcure
+# openagents-treasury → Agentic ERP
 
 **An open framework for autonomous, trust-minimized B2B agents.** Identity on ENS,
 governance on ENS text records, verifiable memory on 0G, autonomous payments on
@@ -67,7 +67,7 @@ Run:
 npx tsx examples/example-agent/run.ts
 ```
 
-### `apps/buyer-agent/` + `apps/seller-agent/` — NanoProcure (B2B procurement)
+### `apps/buyer-agent/` + `apps/seller-agent/` — Agentic ERP (B2B procurement)
 
 Two **separate processes**, peer-to-peer over HTTP, each identified by an ENS
 name, each transaction policy-gated and audit-anchored.
@@ -157,7 +157,7 @@ npm run dev
 # Web: landing + live dashboard
 npm run web
 
-# NanoProcure end-to-end (two terminals)
+# Agentic ERP end-to-end (two terminals)
 npx tsx apps/seller-agent/src/index.ts          # term 1
 npx tsx apps/buyer-agent/src/index.ts           # term 2
 
@@ -215,8 +215,8 @@ plugins/
   keeperhub-rail/                  OpenClaw plugin: autonomous x402 payments
 
 apps/
-  buyer-agent/                     NanoProcure buyer (Odoo + RFQ + escrow + audit)
-  seller-agent/                    NanoProcure seller (catalog + signed quotes)
+  buyer-agent/                     Agentic ERP buyer (Odoo + RFQ + escrow + audit)
+  seller-agent/                    Agentic ERP seller (catalog + signed quotes)
 
 examples/
   example-agent/                   reference 90-line agent using the 3 plugins

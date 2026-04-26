@@ -481,7 +481,7 @@ async function main(): Promise<void> {
     const audit = (await recordAudit.execute("call-audit", {
       record: {
         at: new Date().toISOString(),
-        case: "nanoprocure-rfq-decision",
+        case: "agentic-erp-rfq-decision",
         buyer: buyer.buyer,
         rfq_id: rfqId,
         need,

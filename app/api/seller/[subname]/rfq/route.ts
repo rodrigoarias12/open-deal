@@ -51,7 +51,7 @@ async function loadCatalogFromUri(uri: string): Promise<Catalog> {
       ? uri.slice(5)
       : `0x${uri.slice(5)}`;
     const indexer = new Indexer(ZG_INDEXER);
-    const dir = join(tmpdir(), `nanoprocure-catalog-${Date.now()}`);
+    const dir = join(tmpdir(), `agentic-erp-catalog-${Date.now()}`);
     await mkdir(dir, { recursive: true });
     const path = join(dir, "catalog.json");
     const e = await indexer.download(rootHash, path, true);
@@ -171,7 +171,7 @@ export async function POST(
     currency: catalog.currency ?? "USDC",
     valid_until: validUntil,
     signature,
-    served_by: "nanoprocure-hosted",
+    served_by: "agentic-erp-hosted",
   });
 }
 

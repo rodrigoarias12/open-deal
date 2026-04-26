@@ -1,4 +1,4 @@
-# NanoProcure apps
+# Agentic ERP apps
 
 Two runnable agents that demonstrate the framework end-to-end:
 

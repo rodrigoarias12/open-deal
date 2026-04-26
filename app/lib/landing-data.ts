@@ -295,7 +295,7 @@ export const LOOP: LoopNode[] = [
         ["Anchor index", "14"],
       ],
       code: `{
-  "case": "nanoprocure-rfq-decision",
+  "case": "agentic-erp-rfq-decision",
   "storage": {
     "indexer": "https://indexer-storage-testnet-turbo.0g.ai",
     "root_hash": "0x7f1c4d8a5e21b9c1e5708f6a2b3c4d5e6f701829a2b3c4d5e6f7018293abe3"

@@ -59,7 +59,7 @@ export async function readHistoryFrom0G(opts: {
   const max = opts.limit ?? 20;
   const start = total > BigInt(max) ? total - BigInt(max) : 0n;
 
-  const tmpRoot = join(tmpdir(), `nanoprocure-history-${Date.now()}`);
+  const tmpRoot = join(tmpdir(), `agentic-erp-history-${Date.now()}`);
   await mkdir(tmpRoot, { recursive: true });
 
   const purchases: Purchase[] = [];
@@ -80,7 +80,15 @@ export async function readHistoryFrom0G(opts: {
       if (dlErr) continue;
       const raw = await readFile(tmpPath, "utf8");
       const rec = JSON.parse(raw) as AuditRecord;
-      if (rec.case !== "nanoprocure-rfq-decision") continue;
+      // Accept both the legacy "nanoprocure-rfq-decision" case and the
+      // current "agentic-erp-rfq-decision" so the buyer can still mine
+      // history from anchors written before the rebrand.
+      if (
+        rec.case !== "agentic-erp-rfq-decision" &&
+        rec.case !== "nanoprocure-rfq-decision"
+      ) {
+        continue;
+      }
       const winnerQuote = rec.quotes?.find(
         (q) => q.source_ens === rec.winner?.ens,
       );
