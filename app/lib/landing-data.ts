@@ -651,15 +651,18 @@ export const PROJECT_DEAL = {
   source: "Anthropic Project Deal · April 2026",
   url: "https://www.anthropic.com/features/project-deal",
   headline:
-    "Anthropic just proved Claude agents can negotiate on humans' behalf — and that humans like it.",
+    "Anthropic just proved Claude agents can negotiate on humans' behalf — and named the gap.",
+  quote:
+    "Policy and legal frameworks around AI models that transact on our behalf simply don't exist yet… Society will need to move quickly to reckon with these changes.",
+  quoteAttribution: "Anthropic, Project Deal report",
   stats: [
-    { num: "69", label: "employees represented by Claude agents" },
+    { num: "69", label: "employees, custom Claude agents" },
     { num: "186", label: "deals closed in 1 week" },
     { num: "$4K", label: "transaction value" },
-    { num: "100%", label: "willing to pay for similar service" },
+    { num: "46%", label: "would pay for the service" },
   ],
   punchline:
-    "Their experiment ran inside one office, on Slack, paid out via gift cards. We made it open, onchain, B2B-grade — anyone with an ENS name joins, ERPs feed real needs, and every decision is verifiable from chain state alone.",
+    "Their experiment validated the demand. The same report flagged what's missing — confabulation, prompt injection, information asymmetry, no policy framework. We ship those primitives: policy on ENS, signed quotes, audit anchor on 0G. The framework Anthropic says doesn't exist is in PROTOCOL.md v0.1.",
   comparison: [
     {
       axis: "Network",
@@ -701,6 +704,37 @@ export const PROJECT_DEAL = {
       axis: "Domain",
       anthropic: "C2C — employees swap personal items",
       ours: "B2B — Odoo / Excel / SAP feed real procurement needs",
+      edge: "extension",
+    },
+    {
+      axis: "Confabulation defense",
+      anthropic:
+        "Agents fabricated personal details (a ‘conversation-starting chair’, ping-pong balls ‘as a gift to Claude’)",
+      ours:
+        "Hard policy gate via ENS text records — agent can’t spend outside maxPerCarrierUsd, can’t pick a non-allowlisted carrier",
+      edge: "extension",
+    },
+    {
+      axis: "Prompt-injection mitigation",
+      anthropic:
+        "Flagged as risk; no in-experiment defense. Quotes are natural-language only.",
+      ours:
+        "Quotes are signed by the seller wallet, not by the language model. Funding only moves on Sepolia escrow lock.",
+      edge: "extension",
+    },
+    {
+      axis: "Information asymmetry",
+      anthropic:
+        "Stronger model = better deals; weaker-model users didn’t notice (4/7 perceived fairness either way)",
+      ours:
+        "Every decision uploaded to 0G Storage, anchored on 0G Chain. Any third party recomputes the policy hash and verifies — post-hoc transparency is the equalizer.",
+      edge: "extension",
+    },
+    {
+      axis: "Policy / legal framework",
+      anthropic:
+        "“Don’t exist yet” (Anthropic’s own quote). Pilot disclaimed as not deployment-ready.",
+      ours: "PROTOCOL.md v0.1 — five spec sections, three conformance levels (L1/L2/L3), open to extension",
       edge: "extension",
     },
   ] satisfies ProjectDealRow[],

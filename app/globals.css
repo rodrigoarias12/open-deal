@@ -1049,3 +1049,34 @@ footer {
     border-bottom: 1px solid color-mix(in srgb, currentColor 8%, transparent);
   }
 }
+
+/* Project Deal pull-quote callout */
+.precedent-quote {
+  margin: 2rem 0;
+  padding: 1.5rem 2rem;
+  border-left: 3px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  font-size: 1.05rem;
+  line-height: 1.55;
+  font-style: italic;
+  position: relative;
+  border-radius: 0 8px 8px 0;
+}
+.precedent-quote-mark {
+  display: inline-block;
+  font-size: 1.6em;
+  line-height: 0;
+  vertical-align: -0.2em;
+  margin: 0 0.15em;
+  color: var(--accent);
+  font-style: normal;
+  font-weight: 600;
+}
+.precedent-quote footer {
+  margin-top: 0.75rem;
+  font-style: normal;
+  font-size: 0.825rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, currentColor 60%, transparent);
+}

@@ -83,6 +83,13 @@ export default function Landing() {
             . {PROJECT_DEAL.punchline}
           </p>
 
+          <blockquote className="precedent-quote">
+            <span className="precedent-quote-mark">&ldquo;</span>
+            {PROJECT_DEAL.quote}
+            <span className="precedent-quote-mark">&rdquo;</span>
+            <footer>— {PROJECT_DEAL.quoteAttribution}</footer>
+          </blockquote>
+
           <div
             className="hero-stats"
             style={{ marginTop: "2rem", marginBottom: "2.5rem" }}
