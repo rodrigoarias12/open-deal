@@ -1,9 +1,12 @@
 import { AuditList } from "./components/AuditList";
 import { Demo } from "./components/Demo";
 import { FAQ } from "./components/FAQ";
-import { HeroTerminal } from "./components/HeroTerminal";
 import { Loop } from "./components/Loop";
 import { Topbar } from "./components/Topbar";
+import { AssemblyLine } from "./demo4/_components/AssemblyLine";
+import { FlowDiagram } from "./demo7/_components/FlowDiagram";
+import "./demo4/assembly.css";
+import "./demo7/flow.css";
 import {
   ARCH_DIAGRAM,
   ARTIFACTS,
@@ -21,53 +24,95 @@ export default function Landing() {
     <>
       <Topbar />
 
-      <section className="hero">
-        <div className="container hero-inner">
-          <div>
-            <div className="hero-meta">
-              <span className="hero-meta-dot" />
-              <span>ETHGlobal Open Agents · Apr 24 — May 6, 2026</span>
+      <section className="hero" style={{ textAlign: "center" }}>
+        <div className="container">
+          <div
+            className="hero-meta"
+            style={{ justifyContent: "center", marginBottom: 28 }}
+          >
+            <span className="hero-meta-dot" />
+            <span>ETHGlobal Open Agents · Apr 24 — May 6, 2026</span>
+          </div>
+          <h1 style={{ textAlign: "center", margin: "0 auto 28px" }}>
+            Agents
+            <br />
+            that run
+            <br />
+            <span className="em">the books.</span>
+          </h1>
+          <p
+            className="hero-sub"
+            style={{ margin: "0 auto 40px", maxWidth: 720, textAlign: "center" }}
+          >
+            Buyer and seller agents — each with an ENS identity, an onchain policy, and an
+            audit anchor on 0G. Two autonomous parties trading B2B, with receipts. Powered by
+            the{" "}
+            <span className="em-link">
+              <a
+                href="https://github.com/rodrigoarias12/open-deal/blob/main/PROTOCOL.md"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open Deal protocol
+              </a>
+            </span>{" "}
+            — the framework Anthropic&rsquo;s Project Deal said doesn&rsquo;t exist yet.
+          </p>
+
+          <AssemblyLine />
+
+          <div
+            className="hero-stats"
+            style={{ maxWidth: 900, margin: "32px auto 0" }}
+          >
+            <div>
+              <div className="hero-stat-label">agent</div>
+              <div className="hero-stat-value">{ARTIFACTS.agentEns}</div>
             </div>
-            <h1>
-              Agents
-              <br />
-              that run
-              <br />
-              <span className="em">the books.</span>
-            </h1>
-            <p className="hero-sub">
-              Buyer and seller agents — each with an ENS identity, an onchain policy, and an
-              audit anchor on 0G. Two autonomous parties trading B2B, with receipts. Powered by
-              the <span className="em-link"><a href="https://github.com/rodrigoarias12/open-deal/blob/main/PROTOCOL.md" target="_blank" rel="noreferrer">Open Deal protocol</a></span> —
-              the framework Anthropic&rsquo;s Project Deal said doesn&rsquo;t exist yet.
-            </p>
-            <div className="hero-ctas">
-              <a className="btn btn-primary" href="/sell">
-                sell on the network <span className="btn-arrow">→</span>
-              </a>
-              <a className="btn" href="/dashboard">
-                buyer dashboard <span className="btn-arrow">→</span>
-              </a>
-              <a className="btn" href="#framework">
-                the framework <span className="btn-arrow">→</span>
-              </a>
+            <div>
+              <div className="hero-stat-label">escrow · sepolia</div>
+              <div className="hero-stat-value">{ARTIFACTS.escrowShort}</div>
             </div>
-            <div className="hero-stats">
-              <div>
-                <div className="hero-stat-label">agent</div>
-                <div className="hero-stat-value">{ARTIFACTS.agentEns}</div>
-              </div>
-              <div>
-                <div className="hero-stat-label">escrow · sepolia</div>
-                <div className="hero-stat-value">{ARTIFACTS.escrowShort}</div>
-              </div>
-              <div>
-                <div className="hero-stat-label">anchor · 0g galileo</div>
-                <div className="hero-stat-value">{ARTIFACTS.anchorShort}</div>
-              </div>
+            <div>
+              <div className="hero-stat-label">anchor · 0g galileo</div>
+              <div className="hero-stat-value">{ARTIFACTS.anchorShort}</div>
             </div>
           </div>
-          <HeroTerminal />
+
+          <div
+            className="hero-ctas"
+            style={{ justifyContent: "center", marginTop: 36, marginBottom: 0 }}
+          >
+            <a className="btn btn-primary" href="/sell">
+              sell on the network <span className="btn-arrow">→</span>
+            </a>
+            <a className="btn" href="/dashboard">
+              buyer dashboard <span className="btn-arrow">→</span>
+            </a>
+            <a className="btn" href="#framework">
+              the framework <span className="btn-arrow">→</span>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section id="swimlane">
+        <div className="container">
+          <div className="section-tag">the swimlane</div>
+          <h2
+            className="section-title"
+            style={{ textAlign: "center", margin: "0 auto 24px", maxWidth: 880 }}
+          >
+            Two humans. Six systems. One{" "}
+            <span className="em">autonomous</span> loop.
+          </h2>
+          <p
+            className="section-lede"
+            style={{ textAlign: "center", margin: "0 auto 64px", maxWidth: 600 }}
+          >
+            Set it once. Watch it run. Sign only the edge cases.
+          </p>
+          <FlowDiagram />
         </div>
       </section>
 

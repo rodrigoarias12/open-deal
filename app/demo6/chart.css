@@ -1,0 +1,714 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   demo6 — nautical chart / trade route map
+   All rules prefixed .demo6-* so this file is scoped to the route.
+   Tokens come from app/globals.css (no modifications there).
+   Sepia accent: #8B5A2B (the only non-token color used).
+   ───────────────────────────────────────────────────────────────────────── */
+
+.demo6-hero {
+  padding: 64px 0 96px;
+  border-bottom: 1px solid var(--line);
+  /* very subtle warm cast, like aged paper, layered over --bg */
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 30%, rgba(139, 90, 43, 0.04), transparent 70%),
+    radial-gradient(ellipse 60% 40% at 80% 90%, rgba(139, 90, 43, 0.05), transparent 70%),
+    var(--bg);
+}
+
+.demo6-meta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+.demo6-meta-dot {
+  width: 6px;
+  height: 6px;
+  background: #8B5A2B;
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(139, 90, 43, 0.6);
+  animation: demo6-pulse 2.4s ease-in-out infinite;
+}
+@keyframes demo6-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.demo6-title {
+  font-family: 'Inter Tight', sans-serif;
+  font-size: clamp(48px, 7vw, 96px);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 0.96;
+  margin: 0 0 28px 0;
+  text-wrap: balance;
+}
+.demo6-em {
+  font-style: italic;
+  font-family: 'Inter Tight', 'Times New Roman', serif;
+  font-weight: 400;
+  color: #8B5A2B;
+}
+
+.demo6-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  color: var(--ink-dim);
+  max-width: 620px;
+  margin: 0 0 56px 0;
+  line-height: 1.6;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   chart wrap
+   ───────────────────────────────────────────────────────────────────────── */
+.demo6-chart-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto 48px;
+}
+
+.demo6-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  background:
+    /* cream paper with a faint warm vignette */
+    radial-gradient(ellipse at 50% 50%, #F8F4E9 0%, #F2EBDC 70%, #ECE2CD 100%);
+  border: 1px solid color-mix(in srgb, #8B5A2B 25%, var(--line-2));
+  /* paper-stock shadow — soft, not glossy */
+  box-shadow:
+    inset 0 0 60px rgba(139, 90, 43, 0.06),
+    0 1px 0 rgba(255, 255, 255, 0.6),
+    0 8px 32px rgba(20, 14, 6, 0.06);
+}
+
+/* dark mode: keep the chart cream-paper to preserve the aesthetic.
+   Only the surrounding chrome flips. */
+
+/* ─────────────────────────────────────────────────────────────────────────
+   chart frame
+   ───────────────────────────────────────────────────────────────────────── */
+.demo6-frame {
+  stroke: rgba(10, 10, 10, 0.5);
+  stroke-width: 0.6;
+}
+.demo6-frame-inner {
+  stroke: rgba(139, 90, 43, 0.35);
+  stroke-width: 0.4;
+  stroke-dasharray: 2 3;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   topographic contours — very faint, weathered
+   ───────────────────────────────────────────────────────────────────────── */
+.demo6-contours path {
+  fill: none;
+  stroke: #8B5A2B;
+  stroke-opacity: 0.10;
+  stroke-width: 0.8;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   routes
+   ───────────────────────────────────────────────────────────────────────── */
+.demo6-route {
+  stroke: #1a1a18;
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+  opacity: 0.8;
+  transition: stroke 200ms ease, stroke-width 200ms ease, opacity 200ms ease;
+}
+.demo6-route.is-loop {
+  opacity: 0.32;
+  stroke-dasharray: 2 6;
+}
+.demo6-route.is-active {
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-dasharray: none;
+  opacity: 1;
+}
+/* When a port is hovered/focused, its incoming + outgoing routes get a
+   subtle accent-green tint so the user can read "fed by X, feeds Y". */
+.demo6-route.is-adjacent {
+  stroke: var(--accent);
+  opacity: 0.55;
+}
+.demo6-route.is-adjacent.is-active {
+  /* live segment already at full accent — keep it on top */
+  opacity: 1;
+}
+.demo6-route.is-adjacent.is-loop {
+  opacity: 0.45;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   direction arrows at midpoints
+   ───────────────────────────────────────────────────────────────────────── */
+.demo6-arrow {
+  fill: #1a1a18;
+  opacity: 0.7;
+  transition: fill 200ms ease, opacity 200ms ease;
+}
+.demo6-arrow.is-active {
+  fill: var(--accent);
+  opacity: 1;
+}
+.demo6-arrow.is-adjacent {
+  fill: var(--accent);
+  opacity: 0.85;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   ports
+   ───────────────────────────────────────────────────────────────────────── */
+.demo6-port {
+  cursor: pointer;
+  outline: none;
+}
+.demo6-port:focus-visible .demo6-port-ring {
+  stroke: #8B5A2B;
+  stroke-opacity: 0.9;
+  stroke-width: 1.2;
+}
+
+.demo6-port-dot {
+  fill: #0a0a0a;
+  transition:
+    r 200ms ease,
+    fill 200ms ease,
+    transform 200ms ease;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.demo6-port-ring {
+  fill: none;
+  stroke: #0a0a0a;
+  stroke-opacity: 0.25;
+  stroke-width: 0.6;
+  transition:
+    r 200ms ease,
+    stroke 200ms ease,
+    stroke-opacity 200ms ease,
+    stroke-width 200ms ease;
+}
+.demo6-leader {
+  stroke: #0a0a0a;
+  stroke-opacity: 0.35;
+  stroke-width: 0.5;
+  stroke-dasharray: 1 2;
+}
+.demo6-port-label {
+  font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  font-size: 10.5px;
+  fill: #0a0a0a;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  transition: fill 200ms ease, font-weight 0ms;
+}
+
+/* The sepia "click me" hint ring — appears on hover. */
+.demo6-port-hintring {
+  fill: none;
+  stroke: #8B5A2B;
+  stroke-opacity: 0;
+  stroke-width: 0.8;
+  transition: stroke-opacity 180ms ease, r 200ms ease;
+  pointer-events: none;
+}
+.demo6-port.is-hover .demo6-port-hintring {
+  stroke-opacity: 0.55;
+}
+
+/* The persistent dashed selection ring — visible while pinned. */
+.demo6-port-pinring {
+  fill: none;
+  stroke: #8B5A2B;
+  stroke-opacity: 0;
+  stroke-width: 0.8;
+  stroke-dasharray: 3 3;
+  pointer-events: none;
+  transition: stroke-opacity 200ms ease;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.demo6-port.is-pinned .demo6-port-pinring {
+  stroke-opacity: 0.85;
+  animation: demo6-pinring-spin 24s linear infinite;
+}
+@keyframes demo6-pinring-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* The inner concentric pin — only visible when pinned. */
+.demo6-port-pin-inner {
+  fill: var(--accent);
+  opacity: 0;
+  transition: opacity 200ms ease;
+  pointer-events: none;
+}
+.demo6-port.is-pinned .demo6-port-pin-inner {
+  opacity: 1;
+}
+
+/* Hover-state: dot grows + sepia tinge, label slightly bolder. */
+.demo6-port.is-hover .demo6-port-dot {
+  r: 6.5;
+}
+.demo6-port.is-hover .demo6-port-ring {
+  r: 11;
+  stroke-opacity: 0.5;
+}
+.demo6-port.is-hover .demo6-port-label {
+  fill: #8B5A2B;
+}
+.demo6-port.is-hover {
+  animation: demo6-port-pulse-once 600ms ease-out 1;
+}
+@keyframes demo6-port-pulse-once {
+  0%   { opacity: 1; }
+  40%  { opacity: 0.55; }
+  100% { opacity: 1; }
+}
+
+/* Pinned-state: dot becomes a green-filled pin, ring widens with sepia glow. */
+.demo6-port.is-pinned .demo6-port-dot {
+  r: 7;
+  fill: var(--accent);
+}
+.demo6-port.is-pinned .demo6-port-ring {
+  r: 12;
+  stroke: #8B5A2B;
+  stroke-opacity: 0.9;
+  stroke-width: 1.2;
+}
+.demo6-port.is-pinned .demo6-port-label {
+  fill: #8B5A2B;
+  font-weight: 700;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   traveling green dot
+   ───────────────────────────────────────────────────────────────────────── */
+.demo6-traveler-dot {
+  fill: var(--accent);
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 80%, transparent));
+}
+.demo6-traveler-glow {
+  fill: var(--accent);
+  opacity: 0.42;
+  filter: url(#demo6-traveler-trail);
+}
+.demo6-traveler-trail {
+  fill: var(--accent);
+  opacity: 0.55;
+  filter: url(#demo6-traveler-trail);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   compass rose
+   ───────────────────────────────────────────────────────────────────────── */
+.demo6-compass-ring-outer {
+  fill: rgba(248, 244, 233, 0.6);
+  stroke: #0a0a0a;
+  stroke-width: 0.6;
+}
+.demo6-compass-ring-inner {
+  fill: none;
+  stroke: #0a0a0a;
+  stroke-opacity: 0.4;
+  stroke-width: 0.4;
+  stroke-dasharray: 2 2;
+}
+.demo6-compass-vert {
+  fill: #0a0a0a;
+  fill-opacity: 0.85;
+}
+.demo6-compass-horiz {
+  fill: #0a0a0a;
+  fill-opacity: 0.55;
+}
+.demo6-compass-diag {
+  stroke: #0a0a0a;
+  stroke-opacity: 0.25;
+  stroke-width: 0.4;
+}
+.demo6-compass-pin {
+  fill: #8B5A2B;
+}
+.demo6-compass-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  fill: #0a0a0a;
+  letter-spacing: 0.1em;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   scale bar
+   ───────────────────────────────────────────────────────────────────────── */
+.demo6-scale-bar {
+  stroke: #0a0a0a;
+  stroke-width: 0.8;
+}
+.demo6-scale-tick {
+  stroke: #0a0a0a;
+  stroke-width: 0.6;
+}
+.demo6-scale-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  fill: #0a0a0a;
+  letter-spacing: 0.12em;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   cartographer credit
+   ───────────────────────────────────────────────────────────────────────── */
+.demo6-credit {
+  font-family: 'Inter Tight', 'Times New Roman', serif;
+  font-style: italic;
+  font-size: 10px;
+  fill: #8B5A2B;
+  fill-opacity: 0.75;
+  letter-spacing: 0.02em;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   info panel — hover (light) + pinned (rich)
+   Positioned over the SVG via left/top % from the port coords.
+   ───────────────────────────────────────────────────────────────────────── */
+.demo6-panel {
+  position: absolute;
+  z-index: 4;
+  /* default: panel anchors to the bottom-right of the port (with a gap). */
+  transform: translate(18px, 18px);
+  background: #F8F4E9;
+  border: 1px solid color-mix(in srgb, #8B5A2B 35%, var(--line-2));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6),
+    0 12px 36px rgba(20, 14, 6, 0.14);
+  padding: 12px 14px 14px;
+  font-family: 'JetBrains Mono', monospace;
+  pointer-events: auto;
+  /* ensure it sits on top of the SVG */
+  isolation: isolate;
+}
+.demo6-panel.is-hover {
+  width: 240px;
+  animation: demo6-panel-fade 140ms ease-out;
+}
+.demo6-panel.is-pinned {
+  width: 320px;
+  animation: demo6-panel-pop 180ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  border-color: #8B5A2B;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7),
+    0 0 0 1px rgba(139, 90, 43, 0.18),
+    0 16px 48px rgba(20, 14, 6, 0.18);
+}
+@keyframes demo6-panel-fade {
+  from { opacity: 0; transform: translate(18px, 14px); }
+  to   { opacity: 1; transform: translate(18px, 18px); }
+}
+@keyframes demo6-panel-pop {
+  0%   { opacity: 0; transform: translate(18px, 22px) scale(0.96); }
+  100% { opacity: 1; transform: translate(18px, 18px) scale(1); }
+}
+
+/* edge-flip variants — flip across the port instead of overflowing chart. */
+.demo6-panel.is-flip-x.is-hover {
+  transform: translate(calc(-100% - 18px), 18px);
+}
+.demo6-panel.is-flip-x.is-pinned {
+  transform: translate(calc(-100% - 18px), 18px);
+}
+.demo6-panel.is-flip-y.is-hover {
+  transform: translate(18px, calc(-100% - 18px));
+}
+.demo6-panel.is-flip-y.is-pinned {
+  transform: translate(18px, calc(-100% - 18px));
+}
+.demo6-panel.is-flip-x.is-flip-y.is-hover,
+.demo6-panel.is-flip-x.is-flip-y.is-pinned {
+  transform: translate(calc(-100% - 18px), calc(-100% - 18px));
+}
+/* override the keyframes' final transform when flipped — the keyframes set
+   transform via `to`, so we re-assert via animation-fill-mode reset. */
+.demo6-panel.is-flip-x,
+.demo6-panel.is-flip-y {
+  animation: none;
+}
+
+/* PINNED · ESC bar */
+.demo6-panel-pinbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -2px -2px 10px -2px;
+  padding: 4px 8px;
+  background: color-mix(in srgb, #8B5A2B 8%, transparent);
+  border: 1px solid color-mix(in srgb, #8B5A2B 28%, transparent);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  color: #8B5A2B;
+}
+.demo6-panel-pindot {
+  width: 6px;
+  height: 6px;
+  background: #8B5A2B;
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(139, 90, 43, 0.6);
+  animation: demo6-pulse 2.4s ease-in-out infinite;
+}
+.demo6-panel-pinlabel {
+  font-weight: 600;
+  flex: 1;
+}
+.demo6-panel-pinkey {
+  opacity: 0.7;
+}
+
+/* head — name + step */
+.demo6-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.demo6-panel-name {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: #1a1a18;
+  text-transform: uppercase;
+}
+.demo6-panel.is-pinned .demo6-panel-name {
+  color: #8B5A2B;
+}
+.demo6-panel-step {
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  color: rgba(26, 26, 24, 0.55);
+  text-transform: uppercase;
+}
+
+/* body — the existing blurb */
+.demo6-panel-body {
+  font-family: 'Inter Tight', 'Times New Roman', serif;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: rgba(26, 26, 24, 0.85);
+  margin: 0 0 8px 0;
+}
+
+/* hover-only "click for more" hint */
+.demo6-panel-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: rgba(139, 90, 43, 0.85);
+  text-transform: uppercase;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(139, 90, 43, 0.3);
+}
+.demo6-panel-hint-key {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px solid rgba(139, 90, 43, 0.5);
+  background: rgba(139, 90, 43, 0.08);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+}
+
+/* sections — WHAT FLOWS THROUGH HERE / LIVE LINK */
+.demo6-panel-section {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(139, 90, 43, 0.18);
+}
+.demo6-panel-section-label {
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  color: rgba(139, 90, 43, 0.85);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.demo6-panel-flows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: rgba(26, 26, 24, 0.82);
+}
+.demo6-panel-flows li {
+  padding-left: 12px;
+  position: relative;
+  margin-bottom: 4px;
+}
+.demo6-panel-flows li::before {
+  content: "·";
+  position: absolute;
+  left: 0;
+  color: #8B5A2B;
+  font-weight: 700;
+}
+
+.demo6-panel-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px dashed color-mix(in srgb, var(--accent) 60%, transparent);
+  word-break: break-all;
+  transition: color 150ms ease, border-color 150ms ease;
+}
+.demo6-panel-link:hover {
+  color: #8B5A2B;
+  border-bottom-color: #8B5A2B;
+}
+.demo6-panel-link-arrow {
+  font-size: 10px;
+  opacity: 0.85;
+}
+
+.demo6-panel-mono {
+  margin-top: 12px;
+  padding: 6px 8px;
+  background: rgba(139, 90, 43, 0.06);
+  border: 1px solid rgba(139, 90, 43, 0.2);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: rgba(26, 26, 24, 0.78);
+  word-break: break-all;
+}
+
+.demo6-panel-rule {
+  display: none;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   legend strip beneath the chart
+   ───────────────────────────────────────────────────────────────────────── */
+.demo6-legend {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+  padding: 12px 18px;
+  border: 1px solid var(--line-2);
+  background: var(--bg-elev);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--ink-dim);
+}
+.demo6-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.demo6-legend-dash {
+  display: inline-block;
+  width: 28px;
+  height: 1px;
+  background-image: linear-gradient(
+    to right,
+    var(--ink) 0,
+    var(--ink) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+  background-size: 8px 1px;
+  background-repeat: repeat-x;
+}
+.demo6-legend-live {
+  display: inline-block;
+  width: 28px;
+  height: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.demo6-legend-from { color: var(--ink); }
+.demo6-legend-to { color: var(--accent); }
+.demo6-legend-arrow { color: var(--ink-faint); }
+.demo6-legend-meta {
+  margin-left: auto;
+  color: var(--ink-faint);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   divider + stats + cta
+   ───────────────────────────────────────────────────────────────────────── */
+.demo6-divider {
+  height: 1px;
+  background: var(--line);
+  margin: 56px 0 32px;
+}
+
+.demo6-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+  padding-bottom: 32px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.demo6-stat-label {
+  font-size: 11px;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+}
+.demo6-stat-value {
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.demo6-cta-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   back link
+   ───────────────────────────────────────────────────────────────────────── */
+.demo6-back {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px 32px 64px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+.demo6-back a:hover { color: var(--ink); }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   responsive
+   ───────────────────────────────────────────────────────────────────────── */
+@media (max-width: 1080px) {
+  .demo6-stats { grid-template-columns: 1fr; gap: 16px; }
+  .demo6-legend { gap: 16px; }
+  .demo6-legend-meta { margin-left: 0; }
+}
+
+@media (max-width: 640px) {
+  .demo6-hero { padding: 48px 0 64px; }
+  .demo6-title { font-size: clamp(40px, 11vw, 64px); }
+  .demo6-sub { margin-bottom: 32px; }
+}
