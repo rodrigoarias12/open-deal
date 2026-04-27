@@ -3,8 +3,7 @@ import { readFile } from "node:fs/promises";
 import { Contract, JsonRpcProvider, Wallet, keccak256, parseEther, toUtf8Bytes } from "ethers";
 import policyPlugin from "../../../plugins/policy-from-ens/src/index.js";
 import auditPlugin from "../../../plugins/audit-to-0g/src/index.js";
-import { OdooClient } from "../../../src/sources/odoo.js";
-import { OdooInventorySource } from "../../../src/sources/odoo-inventory.js";
+import { pickBuyerConnector } from "../../../src/connectors/buyer/factory.js";
 import { TelegramApprover, type ApprovalResult } from "../../../src/notify/telegram.js";
 import { readHistoryFrom0G } from "./history-from-0g.js";
 
@@ -125,40 +124,29 @@ async function lockEscrow(args: {
   };
 }
 
-async function readNeedsFromOdooOrFixture(buyer: BuyerConfig): Promise<Need[]> {
-  if (
-    process.env.ODOO_URL &&
-    process.env.ODOO_DB &&
-    process.env.ODOO_USERNAME &&
-    process.env.ODOO_PASSWORD
-  ) {
-    console.log(`[buyer] checking Odoo (${process.env.ODOO_URL}) for low-stock items…`);
-    try {
-      const client = new OdooClient({
-        url: process.env.ODOO_URL,
-        db: process.env.ODOO_DB,
-        username: process.env.ODOO_USERNAME,
-        password: process.env.ODOO_PASSWORD,
-      });
-      const inventory = new OdooInventorySource(client, 5);
-      const low = await inventory.readLowStock();
-      if (low.length > 0) {
-        console.log(`[buyer]   ✓ Odoo returned ${low.length} low-stock item(s):`);
-        for (const item of low) {
-          console.log(`[buyer]     - ${item.sku} "${item.name}" qty=${item.qty_available}`);
-        }
-        return low.map((item) => ({
-          sku: item.sku,
-          quantity: Math.max(item.reorder_point * 2 - item.qty_available, item.reorder_point),
-          max_unit_price_usd: 100,
-          deadline_days: 5,
-          reason: `auto: Odoo low-stock alert (qty ${item.qty_available} < reorder ${item.reorder_point})`,
-        }));
+async function readNeedsFromConnector(buyer: BuyerConfig): Promise<Need[]> {
+  const connector = await pickBuyerConnector();
+  console.log(`[buyer] connector: ${connector.id} — ${connector.name}`);
+  try {
+    const items = await connector.readNeeds();
+    if (items.length > 0) {
+      console.log(`[buyer]   ✓ ${connector.id} returned ${items.length} need(s):`);
+      for (const item of items) {
+        console.log(
+          `[buyer]     - ${item.sku} qty=${item.current_stock ?? "?"} order=${item.quantity}${item.name ? ` "${item.name}"` : ""}`,
+        );
       }
-      console.log(`[buyer]   (Odoo returned 0 low-stock items — falling back to fixture needs)`);
-    } catch (e) {
-      console.log(`[buyer]   ⚠ Odoo error: ${(e as Error).message} — falling back to fixture`);
+      return items.map((it) => ({
+        sku: it.sku,
+        quantity: it.quantity,
+        max_unit_price_usd: it.max_unit_price_usd ?? 100,
+        deadline_days: it.deadline_days,
+        reason: it.reason,
+      }));
     }
+    console.log(`[buyer]   (${connector.id} returned 0 items — falling back to fixture needs)`);
+  } catch (e) {
+    console.log(`[buyer]   ⚠ connector error: ${(e as Error).message} — falling back to fixture`);
   }
   console.log(`[buyer] using fixture needs from needs.json`);
   return buyer.needs;
@@ -376,7 +364,7 @@ async function main(): Promise<void> {
 
   console.log(`[buyer] ${buyer.buyer} (${buyer.buyer_ens})`);
 
-  const needs = await readNeedsFromOdooOrFixture(buyer);
+  const needs = await readNeedsFromConnector(buyer);
   console.log(
     `[buyer] ${needs.length} pending need(s) · ${registry.sellers.length} seller subname(s) in registry`,
   );

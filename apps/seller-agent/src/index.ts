@@ -1,22 +1,8 @@
 import "dotenv/config";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { readFile } from "node:fs/promises";
-import { Wallet, getBytes, hashMessage } from "ethers";
-
-interface CatalogItem {
-  sku: string;
-  name: string;
-  unit_price_usd: number;
-  stock: number;
-  delivery_days: number;
-}
-
-interface Catalog {
-  seller: string;
-  address: string;
-  currency: string;
-  items: CatalogItem[];
-}
+import { Wallet } from "ethers";
+import { pickSellerConnector } from "../../../src/connectors/seller/factory";
+import type { Catalog, CatalogItem } from "../../../src/connectors/seller/types";
 
 interface RfqRequest {
   rfq_id: string;
@@ -42,13 +28,14 @@ interface Quote {
 }
 
 const PORT = parseInt(process.env.SELLER_PORT || "3030", 10);
-const CATALOG_PATH = process.env.SELLER_CATALOG_PATH || "apps/seller-agent/catalog.json";
 
 let catalog: Catalog;
+let connectorName: string;
 
-async function loadCatalog(): Promise<Catalog> {
-  const text = await readFile(CATALOG_PATH, "utf8");
-  return JSON.parse(text);
+if (!process.env.SELLER_CONNECTOR && !process.env.SELLER_CATALOG_PATH) {
+  // Backwards compat: if no env, default to JSON file at the original
+  // path so existing run instructions still work.
+  process.env.SELLER_CATALOG_PATH = "apps/seller-agent/catalog.json";
 }
 
 async function signQuote(quote: Omit<Quote, "signature">): Promise<string> {
@@ -144,7 +131,10 @@ function handleHealth(_req: IncomingMessage, res: ServerResponse): void {
 }
 
 async function main(): Promise<void> {
-  catalog = await loadCatalog();
+  const connector = await pickSellerConnector();
+  connectorName = `${connector.id} — ${connector.name}`;
+  console.log(`[seller] connector: ${connectorName}`);
+  catalog = await connector.loadCatalog();
   console.log(`[seller] loaded catalog: ${catalog.seller} — ${catalog.items.length} SKUs`);
   console.log(`[seller] address: ${catalog.address}`);
 

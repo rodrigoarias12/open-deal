@@ -230,6 +230,94 @@ Given a chain anchor `(cidRoot, policyHash, timestamp, agent)`, a third party ca
 
 ---
 
+## 6. `procurement.connector.v1` — Source-system adapters
+
+The agents are data-source-agnostic. Buyers can read needs from any
+ERP, spreadsheet, or custom system; sellers can publish catalogs from
+any commerce backend. The shape of the data is what matters; the
+transport is plug-and-play.
+
+### Buyer-side: `BuyerInventoryConnector`
+
+```ts
+interface BuyerInventoryConnector {
+  readonly id: string;
+  readonly name: string;
+  readNeeds(): Promise<InventoryNeed[]>;
+  healthCheck?(): Promise<boolean>;
+  pushOrder?(order: PlacedOrder): Promise<{ id: string; url?: string }>;
+}
+
+interface InventoryNeed {
+  sku: string;
+  name?: string;
+  quantity: number;
+  current_stock?: number;
+  max_unit_price_usd?: number;
+  deadline_days: number;
+  reason: string;
+  source: string;     // connector id, surfaced in audit
+}
+```
+
+Reference implementations under `src/connectors/buyer/`:
+
+| `id` | What it reads | Status |
+|---|---|---|
+| `odoo` | Odoo `product.product` via JSON-RPC, filtered by `qty_available` | Real |
+| `excel` | local `.xlsx` with reorder thresholds | Real |
+| `csv` | local `.csv` with same column conventions | Real |
+| `sap` | SAP MARA/MARC via OData / RFC | Stub — set `SAP_HOST` to enable |
+| `mock` | synthetic data | Real (testing) |
+
+The factory at `src/connectors/buyer/factory.ts` picks via env precedence:
+`BUYER_CONNECTOR` > `SAP_HOST` > `ODOO_URL` > `BUYER_NEEDS_XLSX` > `BUYER_NEEDS_CSV` > `mock`.
+
+### Seller-side: `SellerCatalogConnector`
+
+```ts
+interface SellerCatalogConnector {
+  readonly id: string;
+  readonly name: string;
+  loadCatalog(): Promise<Catalog>;
+  healthCheck?(): Promise<boolean>;
+  recordSale?(sale: RecordedSale): Promise<{ id: string; url?: string }>;
+}
+```
+
+Reference implementations under `src/connectors/seller/`:
+
+| `id` | What it loads | Status |
+|---|---|---|
+| `json` | local `.json` catalog (the original demo seller) | Real |
+| `excel` | local `.xlsx` with column auto-detection | Real |
+| `shopify` | Shopify Admin GraphQL (`products.edges.node.variants`) | Stub — set `SHOPIFY_STORE` + `SHOPIFY_TOKEN` |
+| `mercadolibre` | ML Items API (`/users/{id}/items/search`) | Stub — set `ML_USER_ID` + `ML_TOKEN` |
+| `mock` | synthetic catalog | Real (testing) |
+
+Stubs return shape-correct fixture data with `source_ref` flagged so
+audit logs make the provenance explicit. Replace the body of
+`loadCatalog()` with the live API call to upgrade.
+
+### Why two connectors per side?
+
+A buyer agent that reads from Odoo trades with a seller agent backed by
+Shopify, and the buyer never knows. Both sides converge on the same
+`procurement.rfq.v1` / `procurement.quote.v1` over HTTP. The connector
+pattern is the **only** place where source-system specificity lives —
+the rest of the framework is stack-agnostic.
+
+This is what makes "anyone can join the network" real:
+
+- a small distributor with an Excel exports → use `excel` seller connector
+- a Shopify store → use `shopify` seller connector (when implemented)
+- a SAP-running enterprise as buyer → use `sap` buyer connector
+- an Odoo-running SME as buyer → use `odoo` buyer connector
+
+All four interoperate, because the over-the-wire protocol is invariant.
+
+---
+
 ## Conformance levels
 
 A Agentic ERP-conformant agent is **L1**, **L2**, or **L3**:
