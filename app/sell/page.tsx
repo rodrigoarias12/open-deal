@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { normaliseSheet } from "../lib/catalog-normalize";
+import { Topbar } from "../components/Topbar";
 
 interface OnboardEvent {
   step: string;
@@ -58,67 +57,55 @@ export default function SellPage() {
     JSON.stringify(SAMPLE_CATALOG, null, 2),
   );
   const [fileName, setFileName] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<OnboardResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function ingestFile(file: File): Promise<void> {
+  async function handleFile(file: File): Promise<void> {
     setFileName(file.name);
-    setError(null);
-    const lower = file.name.toLowerCase();
-
-    if (lower.endsWith(".json")) {
+    if (file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) {
+      const buf = await file.arrayBuffer();
+      const xlsx = await import("xlsx");
+      const { normaliseSheet } = await import("../lib/catalog-normalize");
+      const wb = xlsx.read(buf);
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows = xlsx.utils.sheet_to_json<unknown[]>(sheet, {
+        header: 1,
+        raw: true,
+      });
+      const result = normaliseSheet(rows);
+      if (!result.ok) {
+        setError(`xlsx parse failed: ${result.error}`);
+        return;
+      }
+      setCatalogText(
+        JSON.stringify(
+          {
+            seller: storeName || "Your Store",
+            currency: "USDC",
+            items: result.items,
+          },
+          null,
+          2,
+        ),
+      );
+    } else {
       const text = await file.text();
       setCatalogText(text);
-      return;
     }
-
-    if (lower.endsWith(".xlsx") || lower.endsWith(".xls")) {
-      try {
-        // Lazy-load xlsx so we don't bloat the initial page bundle.
-        const XLSX = await import("xlsx");
-        const buf = await file.arrayBuffer();
-        const wb = XLSX.read(buf, { type: "array" });
-        const sheet = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
-          header: 1,
-          raw: true,
-        });
-        const result = normaliseSheet(rows);
-        if (!result.ok) {
-          setError(`xlsx parse failed: ${result.error ?? "unknown"}`);
-          setCatalogText("");
-          return;
-        }
-        const detected = result.detectedHeaders
-          ?.map((h) => `${h.raw}→${h.canonical}`)
-          .join(", ");
-        const catalog = {
-          seller: storeName || file.name.replace(/\.(xlsx|xls)$/i, ""),
-          currency: "USDC",
-          items: result.items,
-          _ingested_from: file.name,
-          _detected_columns: detected,
-        };
-        setCatalogText(JSON.stringify(catalog, null, 2));
-      } catch (e) {
-        setError(`xlsx read failed: ${(e as Error).message}`);
-      }
-      return;
-    }
-
-    setError(`unsupported file type: ${file.name}. Use .json, .xlsx or .xls`);
   }
 
   function onFileChange(e: React.ChangeEvent<HTMLInputElement>): void {
     const file = e.target.files?.[0];
-    if (file) void ingestFile(file);
+    if (file) handleFile(file);
   }
 
   function onDrop(e: React.DragEvent<HTMLDivElement>): void {
     e.preventDefault();
+    setDragOver(false);
     const file = e.dataTransfer.files?.[0];
-    if (file) void ingestFile(file);
+    if (file) handleFile(file);
   }
 
   async function onSubmit(e: React.FormEvent): Promise<void> {
@@ -154,302 +141,334 @@ export default function SellPage() {
 
   if (result?.ok) {
     return (
-      <main className="landing">
-        <nav className="brand">
-          <span className="logo">openagents-treasury</span>
-          <span>
-            <Link href="/">home</Link>
-            <Link href="/dashboard">dashboard</Link>
-          </span>
-        </nav>
-
+      <>
+        <Topbar />
         <section className="hero">
-          <div className="eyebrow">Seller live ✓</div>
-          <h1>
-            <em>{result.storeName}</em> is now selling onchain.
-          </h1>
-          <p className="lede">
-            Your catalog lives on 0G Storage. Your name lives on ENS Sepolia.
-            Any buyer agent on the network can now discover you, request
-            quotes, and settle through escrow — without you doing anything.
-          </p>
-          <div className="cta-row">
-            {result.explorer?.ens && (
-              <a href={result.explorer.ens} target="_blank" rel="noreferrer">
-                <button className="primary">View on ENS app →</button>
+          <div className="container">
+            <div className="hero-meta">
+              <span className="hero-meta-dot" />
+              <span>Seller live · {result.subname}</span>
+            </div>
+            <h1>
+              <em>{result.storeName}</em>
+              <br />
+              is selling onchain.
+            </h1>
+            <p className="hero-sub">
+              Catalog on 0G Storage. Identity on ENS Sepolia. Any buyer agent on
+              the Open Deal network can now discover you, request quotes, and
+              settle through escrow — without you doing anything.
+            </p>
+            <div className="hero-ctas">
+              {result.explorer?.ens && (
+                <a
+                  className="btn btn-primary"
+                  href={result.explorer.ens}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  view on ENS app <span className="btn-arrow">→</span>
+                </a>
+              )}
+              <a className="btn" href="/dashboard">
+                open dashboard <span className="btn-arrow">→</span>
               </a>
-            )}
-            <Link href="/dashboard">
-              <button className="cta-secondary">Open dashboard</button>
-            </Link>
+              <a className="btn" href="/sell">
+                onboard another <span className="btn-arrow">→</span>
+              </a>
+            </div>
           </div>
         </section>
 
-        <div className="feature-grid">
-          <div className="feature">
-            <div className="num">01 / Identity</div>
-            <h3>{result.subname}</h3>
-            <p>
-              ENS subname registered, pointing to your seller endpoint.
-              {result.subname_tx && (
-                <>
-                  {" "}
-                  <a
-                    href={`https://sepolia.etherscan.io/tx/${result.subname_tx}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Registration tx
-                  </a>
-                  .
-                </>
-              )}
-            </p>
-          </div>
-          <div className="feature">
-            <div className="num">02 / Catalog</div>
-            <h3>0G Storage</h3>
-            <p>
-              <code>{result.catalog_cid?.slice(0, 18)}…</code>
-              {result.explorer?.catalog_storage && (
-                <>
-                  {" "}
-                  <a
-                    href={result.explorer.catalog_storage}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Storage tx
-                  </a>
-                  .
-                </>
-              )}{" "}
-              Hash-anchored, content-addressed, anyone can audit.
-            </p>
-          </div>
-          <div className="feature">
-            <div className="num">03 / Records</div>
-            <h3>Public discovery</h3>
-            <p>
-              {result.records_tx && (
-                <>
-                  Five text records set in one multicall (
-                  <a
-                    href={`https://sepolia.etherscan.io/tx/${result.records_tx}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    tx
-                  </a>
-                  ): addr, endpoint, description, email, catalog-uri.
-                </>
-              )}
-            </p>
-          </div>
-        </div>
-
-        <section className="flow">
-          <h2>What just happened</h2>
-          <div className="flow-diagram">
-            {result.events?.map((ev) => (
-              <div className="flow-step" key={ev.step}>
-                <div className="label">
-                  {ev.status === "ok"
-                    ? "✓"
-                    : ev.status === "skipped"
-                      ? "—"
-                      : ev.status === "failed"
-                        ? "×"
-                        : "…"}
+        <section id="result-cards">
+          <div className="container">
+            <div className="section-tag">what just landed onchain</div>
+            <h2 className="section-title">Three transactions, twenty-five seconds.</h2>
+            <div className="pillars">
+              <div className="pillar">
+                <div className="pillar-num">01 / IDENTITY</div>
+                <h3 className="pillar-title">{result.subname}</h3>
+                <div className="pillar-body">
+                  ENS subname registered on Sepolia, pointing to your seller
+                  endpoint. Buyer agents resolve this name to find your catalog
+                  and your wallet.
                 </div>
-                <div className="name">{ev.step}</div>
-                <div className="detail">{ev.detail ?? ev.status}</div>
+                {result.subname_tx && (
+                  <div className="pillar-foot">
+                    <span>tx</span>
+                    <a
+                      className="src"
+                      href={`https://sepolia.etherscan.io/tx/${result.subname_tx}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {result.subname_tx.slice(0, 10)}…{result.subname_tx.slice(-6)}
+                    </a>
+                  </div>
+                )}
               </div>
-            ))}
+
+              <div className="pillar">
+                <div className="pillar-num">02 / CATALOG</div>
+                <h3 className="pillar-title">0G Storage</h3>
+                <div className="pillar-body">
+                  Your price list is now content-addressed on 0G. Hash-anchored,
+                  immutable, fetched on every RFQ. Anyone can audit what you're
+                  quoting.
+                </div>
+                <div>
+                  <span className="pillar-mono">
+                    {result.catalog_cid?.slice(0, 18)}…
+                  </span>
+                </div>
+                {result.explorer?.catalog_storage && (
+                  <div className="pillar-foot">
+                    <span>tx</span>
+                    <a
+                      className="src"
+                      href={result.explorer.catalog_storage}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      0g galileo →
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              <div className="pillar">
+                <div className="pillar-num">03 / DISCOVERY</div>
+                <h3 className="pillar-title">5 text records</h3>
+                <div className="pillar-body">
+                  Set in one multicall on the Public Resolver: <code>addr</code>,
+                  <code> endpoint</code>, <code>description</code>,
+                  <code> email</code>, <code>catalog-uri</code>.
+                </div>
+                {result.records_tx && (
+                  <div className="pillar-foot">
+                    <span>tx</span>
+                    <a
+                      className="src"
+                      href={`https://sepolia.etherscan.io/tx/${result.records_tx}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {result.records_tx.slice(0, 10)}…
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </section>
-      </main>
+
+        <section id="result-events">
+          <div className="container">
+            <div className="section-tag">timeline</div>
+            <h2 className="section-title">Step by step.</h2>
+            <div className="event-grid">
+              {result.events?.map((ev, i) => (
+                <div className={`event-step event-${ev.status}`} key={ev.step}>
+                  <div className="event-num">
+                    {String(i + 1).padStart(2, "0")}
+                  </div>
+                  <div className="event-icon">
+                    {ev.status === "ok"
+                      ? "✓"
+                      : ev.status === "skipped"
+                        ? "—"
+                        : ev.status === "failed"
+                          ? "✗"
+                          : "·"}
+                  </div>
+                  <div className="event-name">{ev.step.replace(/-/g, " ")}</div>
+                  <div className="event-detail">{ev.detail ?? ev.status}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      </>
     );
   }
 
   return (
-    <main className="landing">
-      <nav className="brand">
-        <span className="logo">openagents-treasury</span>
-        <span>
-          <Link href="/">home</Link>
-          <Link href="/dashboard">dashboard</Link>
-        </span>
-      </nav>
+    <>
+      <Topbar />
 
       <section className="hero">
-        <div className="eyebrow">For sellers · public network</div>
-        <h1>
-          Sell what you have. <em>Without a website.</em>
-        </h1>
-        <p className="lede">
-          Drop your price list. Pick a name. We register your ENS subname,
-          publish your catalog to 0G Storage, and put you on the discovery
-          network. Buyer agents start asking you for quotes within minutes.
-        </p>
-      </section>
-
-      <section className="flow">
-        <form onSubmit={onSubmit} className="onboard-form">
-          <label className="label-block">
-            <div className="label">Store name</div>
-            <input
-              type="text"
-              value={storeName}
-              onChange={(e) => setStoreName(e.target.value)}
-              placeholder="Acme Cartonería"
-              required
-              minLength={3}
-              disabled={submitting}
-            />
-            <div className="hint">
-              your onchain name will be <code>{storeName ? `${slug(storeName)}.openagents-treasury.eth` : "<slug>.openagents-treasury.eth"}</code>
-            </div>
-          </label>
-
-          <label className="label-block">
-            <div className="label">Notification email</div>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="[email protected]"
-              required
-              disabled={submitting}
-            />
-          </label>
-
-          <label className="label-block">
-            <div className="label">Seller agent endpoint (HTTP)</div>
-            <input
-              type="url"
-              value={endpoint}
-              onChange={(e) => setEndpoint(e.target.value)}
-              placeholder="https://agentic-erp-eth.vercel.app/api/seller/__SUBNAME__/rfq"
-              disabled={submitting}
-            />
-            <div className="hint">
-              the URL where your seller agent will accept RFQ posts. Leave the
-              default for the local-demo flow.
-            </div>
-          </label>
-
-          <label className="label-block">
-            <div className="label">Catalog (drop your .xlsx, .json or paste below)</div>
-            <div
-              className="dropzone"
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={onDrop}
-            >
-              <input
-                type="file"
-                accept=".json,.xlsx,.xls,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                onChange={onFileChange}
-                disabled={submitting}
-              />
-              {fileName && <div className="hint">loaded: {fileName}</div>}
-            </div>
-            <textarea
-              value={catalogText}
-              onChange={(e) => setCatalogText(e.target.value)}
-              rows={10}
-              spellCheck={false}
-              disabled={submitting}
-            />
-          </label>
-
-          <div className="cta-row">
-            <button
-              type="submit"
-              className="primary"
-              disabled={submitting || !storeName || !email || !catalogText}
-            >
-              {submitting ? "Activating…" : "🚀 Activate my store"}
-            </button>
+        <div className="container">
+          <div className="hero-meta">
+            <span className="hero-meta-dot" />
+            <span>For sellers · open deal network</span>
           </div>
-
-          {error && (
-            <div className="onboard-error">
-              <strong>Failed.</strong> {error}
-              {result?.events && (
-                <ul>
-                  {result.events.map((ev) => (
-                    <li key={ev.step}>
-                      <code>
-                        {ev.step}: {ev.status}
-                      </code>{" "}
-                      {ev.detail}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-        </form>
+          <h1>
+            Sell what you have.
+            <br />
+            <span className="em">Without a website.</span>
+          </h1>
+          <p className="hero-sub">
+            Drop your price list. Pick a name. We register your ENS subname,
+            publish your catalog to 0G Storage, and put you on the discovery
+            network. Buyer agents start asking you for quotes within minutes —
+            no servers, no API keys, no negotiation.
+          </p>
+        </div>
       </section>
 
-      <style jsx>{`
-        .onboard-form {
-          display: grid;
-          gap: 1.25rem;
-          max-width: 720px;
-        }
-        .label-block {
-          display: block;
-        }
-        .label-block .label {
-          font-weight: 600;
-          margin-bottom: 0.35rem;
-          font-size: 0.85rem;
-          letter-spacing: 0.04em;
-          text-transform: uppercase;
-          opacity: 0.7;
-        }
-        .label-block input,
-        .label-block textarea {
-          width: 100%;
-          font: inherit;
-          padding: 0.6rem 0.75rem;
-          border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
-          background: transparent;
-          color: inherit;
-          border-radius: 6px;
-          font-family: ui-monospace, "SF Mono", monospace;
-          font-size: 0.85rem;
-        }
-        .label-block textarea {
-          margin-top: 0.5rem;
-          resize: vertical;
-        }
-        .dropzone {
-          border: 1px dashed color-mix(in srgb, currentColor 30%, transparent);
-          padding: 0.75rem;
-          border-radius: 6px;
-          font-size: 0.85rem;
-        }
-        .hint {
-          font-size: 0.8rem;
-          opacity: 0.6;
-          margin-top: 0.4rem;
-        }
-        .onboard-error {
-          padding: 0.75rem 1rem;
-          border-left: 3px solid #d04848;
-          background: color-mix(in srgb, #d04848 8%, transparent);
-          border-radius: 4px;
-          font-size: 0.9rem;
-        }
-        .onboard-error ul {
-          margin: 0.5rem 0 0;
-          padding-left: 1.25rem;
-        }
-      `}</style>
-    </main>
+      <section id="onboard-form">
+        <div className="container">
+          <div className="section-tag">activate your store</div>
+          <h2 className="section-title">Three fields. Twenty-five seconds.</h2>
+
+          <form onSubmit={onSubmit} className="sell-form">
+            <div className="sell-grid">
+              <label className="sell-field">
+                <div className="sell-label">Store name</div>
+                <input
+                  type="text"
+                  value={storeName}
+                  onChange={(e) => setStoreName(e.target.value)}
+                  placeholder="Acme Cartonería"
+                  required
+                  minLength={3}
+                  disabled={submitting}
+                  className="sell-input"
+                />
+                <div className="sell-hint">
+                  onchain name:{" "}
+                  <code>
+                    {storeName
+                      ? `${slug(storeName)}.openagents-treasury.eth`
+                      : "<slug>.openagents-treasury.eth"}
+                  </code>
+                </div>
+              </label>
+
+              <label className="sell-field">
+                <div className="sell-label">Notification email</div>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="[email protected]"
+                  required
+                  disabled={submitting}
+                  className="sell-input"
+                />
+                <div className="sell-hint">
+                  set as the <code>email</code> text record on your subname
+                </div>
+              </label>
+            </div>
+
+            <label className="sell-field">
+              <div className="sell-label">Seller endpoint (HTTP)</div>
+              <input
+                type="url"
+                value={endpoint}
+                onChange={(e) => setEndpoint(e.target.value)}
+                placeholder="https://agentic-erp-eth.vercel.app/api/seller/__SUBNAME__/rfq"
+                disabled={submitting}
+                className="sell-input sell-input-mono"
+              />
+              <div className="sell-hint">
+                where your agent accepts RFQ posts. Leave the default to use the
+                hosted endpoint — no infra needed on your side.
+              </div>
+            </label>
+
+            <div className="sell-field">
+              <div className="sell-label">Catalog</div>
+              <div
+                className={`sell-dropzone ${dragOver ? "is-drag" : ""} ${fileName ? "is-loaded" : ""}`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={onDrop}
+              >
+                <input
+                  type="file"
+                  accept=".json,.xlsx,.xls,application/json"
+                  onChange={onFileChange}
+                  disabled={submitting}
+                  id="catalog-file"
+                  className="sell-file-input"
+                />
+                <label htmlFor="catalog-file" className="sell-dropzone-label">
+                  {fileName ? (
+                    <>
+                      <div className="sell-dropzone-title">
+                        ✓ {fileName}
+                      </div>
+                      <div className="sell-dropzone-sub">
+                        Loaded. Drop another to replace.
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="sell-dropzone-title">
+                        Drop your price list
+                      </div>
+                      <div className="sell-dropzone-sub">
+                        .xlsx, .xls or .json — we parse it. Or paste below.
+                      </div>
+                    </>
+                  )}
+                </label>
+              </div>
+              <textarea
+                value={catalogText}
+                onChange={(e) => setCatalogText(e.target.value)}
+                rows={10}
+                spellCheck={false}
+                disabled={submitting}
+                className="sell-textarea"
+              />
+              <div className="sell-hint">
+                preview / edit the catalog before submitting. Required fields per
+                item: <code>sku</code>, <code>unit_price_usd</code>,
+                <code> stock</code>.
+              </div>
+            </div>
+
+            {error && (
+              <div className="sell-error">
+                <strong>Failed.</strong> {error}
+                {result?.events && (
+                  <ul>
+                    {result.events.map((ev) => (
+                      <li key={ev.step}>
+                        <code>
+                          {ev.step}: {ev.status}
+                        </code>{" "}
+                        {ev.detail}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            <div className="sell-submit-row">
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={submitting || !storeName || !email || !catalogText}
+              >
+                {submitting ? "activating…" : "activate my store →"}
+              </button>
+              <span className="sell-submit-note">
+                takes ~25 seconds — registers ENS, uploads catalog to 0G, sets 5
+                text records
+              </span>
+            </div>
+          </form>
+        </div>
+      </section>
+    </>
   );
 }
 
@@ -457,7 +476,7 @@ function slug(s: string): string {
   return s
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 32);

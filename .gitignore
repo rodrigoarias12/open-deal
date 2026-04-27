@@ -31,3 +31,7 @@ audit/*.json
 .claude/
 CLAUDE.md
 .vercel
+
+# Local-only — author's notes, never committed
+JUDGE.md
+DEMO.md

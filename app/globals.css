@@ -1136,3 +1136,253 @@ footer {
   font-size: 1.05rem;
   font-weight: 600;
 }
+
+/* ============================================================
+   /sell page — onboarding form, matching landing design system
+   ============================================================ */
+
+#onboard-form {
+  padding-top: 64px;
+  padding-bottom: 96px;
+  border-top: 1px solid var(--line);
+}
+
+.sell-form {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  max-width: 760px;
+  margin-top: 32px;
+}
+
+.sell-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 720px) {
+  .sell-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sell-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sell-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--ink) 75%, transparent);
+}
+
+.sell-input,
+.sell-textarea {
+  width: 100%;
+  font: inherit;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.sell-input:focus,
+.sell-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.sell-input-mono,
+.sell-textarea {
+  font-family: var(--font-mono, ui-monospace, "SF Mono", monospace);
+  font-size: 13px;
+}
+.sell-textarea {
+  resize: vertical;
+  min-height: 200px;
+  background: color-mix(in srgb, var(--ink) 3%, var(--bg));
+}
+.sell-input:disabled,
+.sell-textarea:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.sell-hint {
+  font-size: 12px;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+  line-height: 1.55;
+}
+.sell-hint code {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+/* Dropzone — the visual centerpiece of the form */
+.sell-dropzone {
+  position: relative;
+  border: 2px dashed color-mix(in srgb, var(--ink) 22%, transparent);
+  border-radius: 10px;
+  padding: 32px 20px;
+  text-align: center;
+  background: color-mix(in srgb, var(--ink) 2%, var(--bg));
+  transition: all 0.18s ease;
+  cursor: pointer;
+}
+.sell-dropzone:hover {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  background: color-mix(in srgb, var(--accent) 4%, var(--bg));
+}
+.sell-dropzone.is-drag {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg));
+  border-style: solid;
+}
+.sell-dropzone.is-loaded {
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  border-style: solid;
+  background: color-mix(in srgb, var(--accent) 5%, var(--bg));
+}
+.sell-file-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+.sell-dropzone-label {
+  position: relative;
+  z-index: 0;
+  pointer-events: none;
+  display: block;
+}
+.sell-dropzone-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+.sell-dropzone-sub {
+  font-size: 13px;
+  color: color-mix(in srgb, var(--ink) 60%, transparent);
+}
+.sell-dropzone.is-loaded .sell-dropzone-title {
+  color: var(--accent);
+}
+
+.sell-error {
+  padding: 14px 18px;
+  border-left: 3px solid #d04848;
+  background: color-mix(in srgb, #d04848 8%, transparent);
+  border-radius: 0 6px 6px 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.sell-error ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+.sell-error code {
+  font-size: 12px;
+}
+
+.sell-submit-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.sell-submit-note {
+  font-size: 12px;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+  font-style: italic;
+}
+
+/* Result page — event timeline */
+#result-cards {
+  padding-top: 64px;
+  padding-bottom: 32px;
+  border-top: 1px solid var(--line);
+}
+#result-events {
+  padding-top: 32px;
+  padding-bottom: 96px;
+}
+.event-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 28px;
+  max-width: 760px;
+}
+.event-step {
+  display: grid;
+  grid-template-columns: 32px 28px 1.2fr 2fr;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ink) 1%, var(--bg));
+}
+.event-num {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  color: color-mix(in srgb, var(--ink) 50%, transparent);
+}
+.event-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  color: var(--ink);
+}
+.event-step.event-ok .event-icon {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+.event-step.event-failed .event-icon {
+  background: color-mix(in srgb, #d04848 18%, transparent);
+  color: #d04848;
+}
+.event-name {
+  font-weight: 500;
+  text-transform: lowercase;
+}
+.event-detail {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  color: color-mix(in srgb, var(--ink) 65%, transparent);
+}
+@media (max-width: 720px) {
+  .event-step {
+    grid-template-columns: 28px 24px 1fr;
+    grid-template-rows: auto auto;
+  }
+  .event-num,
+  .event-icon {
+    grid-row: 1;
+  }
+  .event-name {
+    grid-row: 1;
+  }
+  .event-detail {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    font-size: 11px;
+  }
+}
