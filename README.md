@@ -40,6 +40,43 @@ Built solo for [ETHGlobal Open Agents](https://ethglobal.com/events/openagents)
 
 ---
 
+## Real-world demand — two operator conversations
+
+We talked to operators in two industries while building. Both described
+workflows Open Deal directly automates. Anthropic's [Project Deal](https://www.anthropic.com/features/project-deal)
+report validated the *category* (46% of pilot participants would pay for
+agent-mediated trade); these conversations validated the *verticals*.
+
+**Logistics, emerging markets — two companies.** Every shipment is a
+manual price hunt across a fragmented carrier base: WhatsApp groups,
+Excel sheets, email round-robins. Hours per week to find a 5–15% better
+quote on the same lane, in the same currency that's anyway hard to
+move cross-border. With Open Deal: a buyer agent fan-outs an RFQ to N
+carriers via ENS subnames, collects signed quotes, locks USDC in
+escrow, releases on shipment-proof. **30 seconds per shipment instead
+of an afternoon.**
+
+**Real estate / construction materials — one developer.** A project
+manager re-quotes the same shopping list (cement, rebar, drywall,
+fixtures, lighting, paint) every project, often weekly across multiple
+sites. The vendor universe is wide, the comparison is mechanical, the
+savings compound across the portfolio. With Open Deal: the PM drops
+their material list (Excel buyer connector), the agent compares against
+N hosted seller catalogs published on 0G Storage, human approves only
+the outliers via Telegram. **The agent does the comparison; the human
+keeps the override.**
+
+Both verticals share three properties:
+
+1. **High SKU repetition** — same items procured over and over
+2. **Wide vendor universe** — too many carriers/suppliers to compare manually
+3. **Price-shopping currently done by humans** copying numbers between tabs
+
+That's the wedge. The framework is the same for both — only the
+connectors and the policy records change per industry.
+
+---
+
 ## The framework — three OpenClaw plugins
 
 Any OpenClaw agent can adopt these three plugins to gain governance + autonomous
