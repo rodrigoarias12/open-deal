@@ -142,6 +142,94 @@ export default async function Dashboard() {
         </div>
       </div>
 
+      <h2 className="dash-section-title">Live network activity</h2>
+      <div className="dash-grid-2">
+        <div className="dash-card">
+          <div className="dash-card-eyebrow">0g audit anchor</div>
+          <div className="dash-card-title">
+            Last {s.activity.anchors.length} anchored decision{s.activity.anchors.length === 1 ? "" : "s"}
+          </div>
+          {s.activity.anchors.length === 0 ? (
+            <div className="dash-empty">no anchors yet on 0G</div>
+          ) : (
+            <table className="dash-table dash-table-compact">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>age</th>
+                  <th>cidRoot</th>
+                  <th>policyHash</th>
+                </tr>
+              </thead>
+              <tbody>
+                {s.activity.anchors.map((a) => (
+                  <tr key={a.index}>
+                    <td className="mono">#{a.index}</td>
+                    <td>{a.age}</td>
+                    <td className="mono">
+                      <a href={a.explorer} target="_blank" rel="noreferrer">
+                        {a.cidRootShort}
+                      </a>
+                    </td>
+                    <td className="mono">{a.policyHashShort}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <div className="dash-card">
+          <div className="dash-card-eyebrow">sepolia escrow</div>
+          <div className="dash-card-title">
+            {s.activity.escrow ? (
+              <a
+                href={s.activity.escrow.explorer}
+                target="_blank"
+                rel="noreferrer"
+                className="mono"
+              >
+                {s.activity.escrow.contractShort} ↗
+              </a>
+            ) : (
+              "—"
+            )}
+          </div>
+          {s.activity.escrow ? (
+            <div className="dash-stat-grid">
+              <div>
+                <div className="k">total orders</div>
+                <div className="v">{s.activity.escrow.ordersCreated}</div>
+              </div>
+              <div>
+                <div className="k">shipped</div>
+                <div className="v">{s.activity.escrow.shipmentsConfirmed}</div>
+              </div>
+              <div>
+                <div className="k">released</div>
+                <div className="v">{s.activity.escrow.released}</div>
+              </div>
+              <div>
+                <div className="k">refunded</div>
+                <div className="v">{s.activity.escrow.refunded}</div>
+              </div>
+              <div>
+                <div className="k">disputed</div>
+                <div className="v">{s.activity.escrow.disputed}</div>
+              </div>
+              <div>
+                <div className="k">total locked</div>
+                <div className="v mono">
+                  {Number(s.activity.escrow.totalLockedEth).toFixed(6)} ETH
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="dash-empty">escrow contract not reachable</div>
+          )}
+        </div>
+      </div>
+
       <h2 className="dash-section-title">Recent ticks</h2>
       {s.recentTicks.length === 0 ? (
         <div className="dash-empty">

@@ -6,6 +6,7 @@ import { CHAIN, env, llmProvider } from "../../src/config";
 import { getBalanceEth, getWallet } from "../../src/chain/client";
 import { loadPolicy, type TreasuryPolicy } from "../../src/ens/policy";
 import type { Tick } from "../../src/agent/core";
+import { loadOnchainActivity, type OnchainActivity } from "./onchain-activity";
 
 export interface DashboardState {
   chain: { name: string; explorer: string };
@@ -14,6 +15,7 @@ export interface DashboardState {
   keeperhubWallet: { address: string; baseUsdc: string; tempoUsdc: string } | null;
   policy: TreasuryPolicy;
   recentTicks: Array<{ file: string; tick: Tick }>;
+  activity: OnchainActivity;
   warnings: string[];
 }
 
@@ -76,6 +78,14 @@ export async function loadDashboardState(): Promise<DashboardState> {
     /* audit dir may not exist yet */
   }
 
+  let activity: OnchainActivity = { anchors: [], escrow: null, warnings: [] };
+  try {
+    activity = await loadOnchainActivity(10);
+    for (const w of activity.warnings) warnings.push(w);
+  } catch (e) {
+    warnings.push(`onchain activity load failed: ${(e as Error).message}`);
+  }
+
   return {
     chain: { name: CHAIN.name, explorer: CHAIN.explorer },
     llm: { provider: llmProvider() },
@@ -83,6 +93,7 @@ export async function loadDashboardState(): Promise<DashboardState> {
     keeperhubWallet,
     policy,
     recentTicks,
+    activity,
     warnings,
   };
 }

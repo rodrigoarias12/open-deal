@@ -1080,3 +1080,59 @@ footer {
   text-transform: uppercase;
   color: color-mix(in srgb, currentColor 60%, transparent);
 }
+
+/* Dashboard live activity panels */
+.dash-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+@media (max-width: 880px) {
+  .dash-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+.dash-card {
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  border-radius: 8px;
+  padding: 1rem 1.1rem;
+  background: color-mix(in srgb, currentColor 2%, transparent);
+}
+.dash-card-eyebrow {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, currentColor 55%, transparent);
+  margin-bottom: 0.25rem;
+}
+.dash-card-title {
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 0.85rem;
+}
+.dash-table-compact {
+  font-size: 0.8rem;
+}
+.dash-table-compact th,
+.dash-table-compact td {
+  padding: 0.4rem 0.5rem;
+}
+.dash-table-compact .mono {
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+.dash-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem 1rem;
+}
+.dash-stat-grid .k {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: color-mix(in srgb, currentColor 55%, transparent);
+}
+.dash-stat-grid .v {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
