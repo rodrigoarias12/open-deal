@@ -1,10 +1,21 @@
-# openagents-treasury → Agentic ERP
+# Open Deal — agent commerce protocol
 
-**An open framework for autonomous, trust-minimized B2B agents.** Identity on ENS,
-governance on ENS text records, verifiable memory on 0G, autonomous payments on
-KeeperHub, escrow on Sepolia. Three composable OpenClaw plugins + two reference
-example agents that prove the framework lets a buyer and a seller find each other,
-trade, and settle without a human in the middle of every step.
+**The open, onchain framework for trust-minimized agent-mediated trade.**
+Anthropic's [Project Deal](https://www.anthropic.com/features/project-deal) (April 2026)
+ran the closed, in-office, off-chain version of this idea — 69 employees, 186 deals,
+$4K transacted, 46% would pay for it. Their report named the gap:
+
+> *"Policy and legal frameworks around AI models that transact on our behalf simply
+> don't exist yet."*
+
+**Open Deal is that framework.** Three composable plugins (policy gate via ENS,
+verifiable audit on 0G, autonomous x402 payments via KeeperHub) plus reference
+agents on both sides of the trade.
+
+**Agentic ERP** is the first reference application built on Open Deal — autonomous
+B2B procurement: Odoo / Excel / SAP buyers discover Shopify / MercadoLibre / JSON
+sellers via ENS subnames, negotiate over HTTP, settle in escrow on Sepolia, anchor
+every decision on 0G Chain. Anyone can build their own app on the same framework.
 
 Built solo for [ETHGlobal Open Agents](https://ethglobal.com/events/openagents)
 (April 24 – May 6, 2026).

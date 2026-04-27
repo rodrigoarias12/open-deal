@@ -63,7 +63,7 @@ The skill is also published as an OpenClaw plugin:
 `@openagents/openclaw-policy-from-ens`. Same TypeScript code, two
 runtimes (Anthropic Agent Skills + OpenClaw plugin SDK).
 
-Source: <https://github.com/rodrigoarias12/AutoTreasury/tree/main/plugins/policy-from-ens>
+Source: <https://github.com/rodrigoarias12/open-deal/tree/main/plugins/policy-from-ens>
 
 ## Skip when
 

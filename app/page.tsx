@@ -37,8 +37,9 @@ export default function Landing() {
             </h1>
             <p className="hero-sub">
               Buyer and seller agents — each with an ENS identity, an onchain policy, and an
-              audit anchor on 0G. Two autonomous parties trading B2B, with receipts. The framework
-              underneath: three OpenClaw plugins any agent can adopt.
+              audit anchor on 0G. Two autonomous parties trading B2B, with receipts. Powered by
+              the <span className="em-link"><a href="https://github.com/rodrigoarias12/open-deal/blob/main/PROTOCOL.md" target="_blank" rel="noreferrer">Open Deal protocol</a></span> —
+              the framework Anthropic&rsquo;s Project Deal said doesn&rsquo;t exist yet.
             </p>
             <div className="hero-ctas">
               <a className="btn btn-primary" href="/sell">

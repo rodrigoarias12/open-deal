@@ -68,7 +68,7 @@ trust-minimized loop:
 
 Also published as the OpenClaw plugin
 `@openagents/openclaw-keeperhub-rail`. Source:
-<https://github.com/rodrigoarias12/AutoTreasury/tree/main/plugins/keeperhub-rail>
+<https://github.com/rodrigoarias12/open-deal/tree/main/plugins/keeperhub-rail>
 
 ## Setup
 

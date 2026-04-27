@@ -69,7 +69,7 @@ itself is the index.
 
 Also published as the OpenClaw plugin
 `@openagents/openclaw-audit-to-0g`. Source:
-<https://github.com/rodrigoarias12/AutoTreasury/tree/main/plugins/audit-to-0g>
+<https://github.com/rodrigoarias12/open-deal/tree/main/plugins/audit-to-0g>
 
 ## Skip when
 

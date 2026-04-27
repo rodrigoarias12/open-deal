@@ -1,10 +1,16 @@
-# Agentic ERP Protocol — v0.1
+# Open Deal Protocol — v0.1
 
-> **Open standard for autonomous B2B procurement on Ethereum.** Anyone can
-> implement either side of this protocol — buyer or seller — in any language,
-> on any chain that has the canonical ENS registry. Our `apps/` and the
-> hosted endpoints at `agentic-erp-eth.vercel.app` are *one* implementation, not
-> the only one.
+> **Open standard for autonomous, trust-minimized agent-mediated trade.** Anyone
+> can implement either side of this protocol — buyer or seller — in any language,
+> on any chain that has the canonical ENS registry.
+>
+> Anthropic's Project Deal (Apr 2026) validated demand for agent-mediated commerce;
+> their own report named the gap: *"Policy and legal frameworks around AI models
+> that transact on our behalf simply don't exist yet."* Open Deal is that framework.
+>
+> The hosted endpoints at `open-deal.vercel.app` (alias `agentic-erp-eth.vercel.app` —
+> *Agentic ERP* is the first reference B2B app built on Open Deal) are *one*
+> implementation, not the only one.
 
 The protocol normalizes 5 things so a buyer agent built by team A can find,
 quote, settle, and audit a transaction with a seller agent built by team B
