@@ -1,16 +1,30 @@
 # Open Deal Protocol — v0.1
 
 > **Open standard for autonomous, trust-minimized agent-mediated trade.** Anyone
-> can implement either side of this protocol — buyer or seller — in any language,
-> on any chain that has the canonical ENS registry.
+> can implement either side of this protocol — buyer or seller — in any
+> language, on any commerce backend, on any chain that has the canonical ENS
+> registry.
 >
-> Anthropic's Project Deal (Apr 2026) validated demand for agent-mediated commerce;
-> their own report named the gap: *"Policy and legal frameworks around AI models
-> that transact on our behalf simply don't exist yet."* Open Deal is that framework.
+> **Stack-agnostic by design.** The protocol normalizes 5 wire shapes; the
+> mapping from your ERP / catalog / accounting stack to those shapes is a
+> typed adapter you write in ~100 lines. Reference adapters ship for Odoo,
+> Excel, CSV, JSON, Shopify (stub), MercadoLibre (stub), and SAP (stub).
+> See [`IMPLEMENTERS.md`](./IMPLEMENTERS.md).
 >
-> The hosted endpoints at `open-deal.vercel.app` (alias `agentic-erp-eth.vercel.app` —
-> *Agentic ERP* is the first reference B2B app built on Open Deal) are *one*
-> implementation, not the only one.
+> **AX-first documentation.** This file and `IMPLEMENTERS.md` are designed to
+> be fed to an LLM coding agent (Claude / GPT / Cursor / etc.). Drop the docs
+> into the context, point at your stack, and the agent emits a conformant
+> adapter and policy file. No human integration handholding needed — the spec
+> is the integration spec.
+>
+> Anthropic's Project Deal (Apr 2026) validated demand for agent-mediated
+> commerce; their own report named the gap: *"Policy and legal frameworks
+> around AI models that transact on our behalf simply don't exist yet."* Open
+> Deal is that framework.
+>
+> The hosted endpoints at `open-deal.vercel.app` (alias
+> `agentic-erp-eth.vercel.app` — *Agentic ERP* is the first reference B2B app
+> built on Open Deal) are *one* implementation, not the only one.
 
 The protocol normalizes 5 things so a buyer agent built by team A can find,
 quote, settle, and audit a transaction with a seller agent built by team B

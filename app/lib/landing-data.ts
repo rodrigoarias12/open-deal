@@ -620,8 +620,16 @@ sha256: 4d8a5e2118293a2b…abe3
 
 export const FAQS: Faq[] = [
   {
-    q: "Is this an app or a framework?",
-    a: "Both. The framework is three OpenClaw plugins under <code>plugins/</code> — <code>policy-from-ens</code>, <code>audit-to-0g</code>, <code>keeperhub-rail</code>. Any OpenClaw agent can adopt them in one manifest. The buyer/seller agents under <code>apps/</code> are reference implementations: ~400 lines each, both consume the same three plugins. Same trust property, two domains.",
+    q: "Is this a product or a protocol?",
+    a: "A protocol with reference implementations. <code>PROTOCOL.md</code> v0.1 defines five wire-level specs and three conformance levels (L1 discoverable / L2 settlement / L3 auditable). To prove the spec is real, we ship two independent buyer implementations (TypeScript ~620 LOC + Python ~380 LOC) and a seller (TypeScript ~160 LOC) — all trading against the same ENS records, the same escrow contract, the same 0G anchor. The buyer/seller agents are <em>evidence</em>, not the product. The product is the spec.",
+  },
+  {
+    q: "How do I make my agent speak Open Deal?",
+    a: "Read <code><a href='https://github.com/rodrigoarias12/open-deal/blob/main/IMPLEMENTERS.md' target='_blank' rel='noreferrer'>IMPLEMENTERS.md</a></code>. It's written AX-first — feed it to Claude / GPT / Gemini and the agent can produce a conformant implementation in your stack with no human help. Pick a side (buyer or seller), pick your data source (ERP, spreadsheet, custom), write one ~100-LOC adapter against our typed connector interface, plug into the reference loop. Total: ~30 minutes for a clean stack.",
+  },
+  {
+    q: "Stack-agnostic? What stacks?",
+    a: "The protocol is the only thing that doesn't change. Buyer side ships connectors for Odoo, Excel, CSV, mock; SAP is a stub with the contract documented. Seller side ships JSON, Excel, mock; Shopify and MercadoLibre are stubs with the API shapes documented. Your stack different? Your adapter is one file. Look at the closest reference connector as a template and copy the pattern. The protocol layer never changes; everything else is plug-and-play.",
   },
   {
     q: "How does this relate to ERC-8004?",
@@ -801,5 +809,40 @@ export const FOOTER_LINKS = {
     { label: "Anthropic Project Deal", href: "https://www.anthropic.com/features/project-deal" },
     { label: "Anthropic Agent Skills", href: "https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills" },
     { label: "ETHGlobal Open Agents", href: "https://ethglobal.com/events/openagents" },
+  ],
+};
+
+// ─────────────────────────────────────────────────────────────────────────
+// Stack-agnostic matrix — the central pitch: spec is the only thing that
+// doesn't change; everything else plugs in.
+// ─────────────────────────────────────────────────────────────────────────
+
+export type StackEntry = {
+  label: string;
+  status: "real" | "stub";
+  loc: number;
+  href?: string;
+};
+
+export const STACK_AGNOSTIC = {
+  buyerSide: [
+    { label: "Odoo (JSON-RPC)", status: "real", loc: 74, href: "https://github.com/rodrigoarias12/open-deal/blob/main/src/connectors/buyer/odoo.ts" },
+    { label: "Excel (.xlsx)", status: "real", loc: 143, href: "https://github.com/rodrigoarias12/open-deal/blob/main/src/connectors/buyer/excel.ts" },
+    { label: "CSV", status: "real", loc: 113, href: "https://github.com/rodrigoarias12/open-deal/blob/main/src/connectors/buyer/csv.ts" },
+    { label: "SAP (RFC / OData)", status: "stub", loc: 71, href: "https://github.com/rodrigoarias12/open-deal/blob/main/src/connectors/buyer/sap.ts" },
+    { label: "your stack", status: "stub", loc: 0 },
+  ] satisfies StackEntry[],
+  sellerSide: [
+    { label: "Shopify (Admin GraphQL)", status: "stub", loc: 83, href: "https://github.com/rodrigoarias12/open-deal/blob/main/src/connectors/seller/shopify.ts" },
+    { label: "MercadoLibre (Items API)", status: "stub", loc: 91, href: "https://github.com/rodrigoarias12/open-deal/blob/main/src/connectors/seller/mercadolibre.ts" },
+    { label: "JSON file", status: "real", loc: 42, href: "https://github.com/rodrigoarias12/open-deal/blob/main/src/connectors/seller/json.ts" },
+    { label: "Excel (.xlsx)", status: "real", loc: 53, href: "https://github.com/rodrigoarias12/open-deal/blob/main/src/connectors/seller/excel.ts" },
+    { label: "your stack", status: "stub", loc: 0 },
+  ] satisfies StackEntry[],
+  implementations: [
+    { label: "TypeScript (apps/buyer-agent)", loc: 621, status: "real" as const, href: "https://github.com/rodrigoarias12/open-deal/blob/main/apps/buyer-agent" },
+    { label: "Python (apps/buyer-py)", loc: 379, status: "real" as const, href: "https://github.com/rodrigoarias12/open-deal/blob/main/apps/buyer-py" },
+    { label: "Hosted seller (Vercel)", loc: 200, status: "real" as const, href: "https://open-deal.vercel.app/sell" },
+    { label: "yours next?", loc: 0, status: "stub" as const, href: "https://github.com/rodrigoarias12/open-deal/blob/main/IMPLEMENTERS.md" },
   ],
 };
