@@ -254,6 +254,34 @@ sub-services. A future seller can charge a tiny USDC fee per RFQ to discourage
 spam fan-outs; the buyer plugin auto-pays without exposing the payment to
 agent logic. That's the x402 promise: paid HTTP becomes ambient.
 
+### Pattern: pay-per-RFQ (anti-spam quote pricing)
+
+Canonical use of `keeperhub-rail` in B2B procurement. Defined in the spec at
+[`PROTOCOL.md` §3.4](./PROTOCOL.md#34-optional-anti-spam-paid-rfq-via-x402).
+
+**Seller side** — set the ENS text record once:
+
+```
+procurement.rfq-price = "0.001"        // USDC per RFQ
+```
+
+The seller's `/rfq` endpoint returns `HTTP 402` with payment instructions on
+the first request, then processes the RFQ once an `X-Payment-Proof` header is
+attached.
+
+**Buyer side** — no agent-logic change. The buyer's HTTP wrapper detects 402,
+calls `kh_pay()` from `keeperhub-rail`, retries with the proof. The agent's
+RFQ loop never sees the 402.
+
+**Why it's the right shape.**
+- A real procurement run touches ~5–20 sellers per tick. At $0.001/RFQ, a
+  full fan-out costs $0.005–$0.02. Negligible for a real buyer.
+- A scraping bot doing 10K RFQs/day to harvest pricing now pays $10/day per
+  seller it scrapes. Still cheap, but enough to make the math hostile at
+  scale.
+- The cost is asymmetric in the right direction: real B2B activity is
+  bounded, harvesting is unbounded.
+
 ### How an LLM extends this layer
 
 The same AX-first pattern: drop `PROTOCOL.md` + the spec section you're

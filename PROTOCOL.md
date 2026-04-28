@@ -57,6 +57,7 @@ to reach it.
 | `procurement.allowlist` | csv of ENS names | optional | If set, only counterparties in this list may transact. |
 | `procurement.policy-uri` | URI | optional | Pointer to a richer policy document (JSON Schema TBD in v0.2). |
 | `procurement.signature-pubkey` | 0x-hex | optional | Override which key signs quotes (defaults to the wallet `addr` resolves to). |
+| `procurement.rfq-price` | decimal USDC | optional | Price the seller charges per RFQ via x402. Default `0` (free). When set, `POST /rfq` returns `HTTP 402 Payment Required` until the buyer pays. See §3.4. |
 
 Existing ENS keys still apply: `addr` (coinType 60) MUST resolve to the agent
 wallet that signs quotes and onchain actions; `description`, `url`, `email`
@@ -161,8 +162,45 @@ The `signature` is `personal_sign(JSON.stringify({rfq_id, seller_address, sku, t
 | HTTP | Body shape | Meaning |
 |---|---|---|
 | 400 | `{"error": "rfq requires { sku, quantity }"}` | malformed RFQ |
+| 402 | (see §3.4) | seller charges for quotes; pay and retry |
 | 404 | `{"error": "sku NOPE not in catalog", "available_skus": [...]}` | unknown SKU |
 | 409 | `{"error": "insufficient stock for X: have Y, want Z"}` | low stock |
+
+### 3.4 Optional anti-spam: paid RFQ via x402
+
+A seller MAY price its `/rfq` endpoint by setting the `procurement.rfq-price`
+ENS text record (decimal USDC, e.g. `0.001`). When set:
+
+1. First request without payment proof returns:
+   ```
+   HTTP/1.1 402 Payment Required
+   X-Payment-Network: base
+   X-Payment-Token: USDC
+   X-Payment-Amount: 0.001
+   X-Payment-To: 0x… (seller wallet at procurement.signature-pubkey or addr)
+   X-Payment-Nonce: <random hex>
+   {"error": "rfq requires payment", "amount_usdc": "0.001", "rail": "x402"}
+   ```
+2. Buyer agent pays via any x402-compatible rail (e.g. KeeperHub, Coinbase
+   x402, direct USDC transfer). Buyer retries with:
+   ```
+   POST /rfq
+   X-Payment-Proof: <tx hash or x402 receipt>
+   ```
+3. Seller verifies the proof matches the nonce + amount + recipient and
+   processes the RFQ normally.
+
+**Rationale.** Without a per-RFQ cost, a seller exposing a public catalog +
+`/rfq` endpoint is rate-spammable by any agent doing 50-way quote fan-outs.
+A nominal fee ($0.001 USDC) is irrelevant for a real procurement run but
+deters automated fishing. Buyers are expected to handle 402 transparently
+through their payment plugin (`keeperhub-rail`, Coinbase x402, etc.) — agent
+logic never sees the 402.
+
+**Conformance.** This is OPTIONAL. A buyer that receives a 402 from a seller
+priced beyond the buyer's per-call budget MUST skip that seller and continue
+to the next (do not error the whole tick). A seller MUST NOT charge for
+discovery (catalog reads, ENS resolution).
 
 ---
 

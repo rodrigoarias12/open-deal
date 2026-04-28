@@ -341,8 +341,8 @@ export const PILLARS: Pillar[] = [
   },
   {
     num: "03",
-    title: "Outbound HTTP is autonomous.",
-    body: "Any URL the agent calls — paid oracles, sanctions checks, logistics quotes — is auto-paid in USDC by a Turnkey-custodied KeeperHub wallet on Base + Tempo. No 402 handshake to babysit, no human in the loop per call. The agent doesn't distinguish data from goods.",
+    title: "Agents pay each other for asking.",
+    body: "A seller can charge $0.001 USDC per RFQ via HTTP 402 — anti-spam economics for autonomous quote-shopping. The buyer agent's KeeperHub wallet auto-pays, retries, and gets the signed quote. No human in the loop per call. Same rail covers paid oracles, sanctions checks, logistics APIs.",
     mono: "x402 → keeperhub-rail",
     foot: "plugins/keeperhub-rail/",
   },
@@ -370,7 +370,7 @@ export const PLUGINS: Plugin[] = [
   {
     pkg: "@openagents/openclaw-keeperhub-rail",
     title: "keeperhub-rail",
-    body: "Autonomous x402 rail. Any outbound URL the agent hits gets paid in USDC by a Turnkey-custodied KeeperHub wallet on Base + Tempo. No human-in-the-loop per call.",
+    body: "Autonomous x402 rail. Sellers can price their RFQ endpoint (anti-spam: $0.001 USDC per quote request); buyers' Turnkey-custodied KeeperHub wallet on Base + Tempo handles the 402 retry transparently. Same rail for paid oracles, sanctions checks, logistics APIs.",
     tools: ["kh_pay", "kh_balance", "kh_fund_instructions"],
     src: "plugins/keeperhub-rail/",
   },
@@ -637,7 +637,7 @@ export const FAQS: Faq[] = [
   },
   {
     q: "Who pays the gas? The endpoints?",
-    a: "Gas — the agent's hot wallet on Sepolia + 0G. Endpoints — KeeperHub. Every outbound HTTP call (price feeds, sanctions checks, logistics quotes) is auto-paid in USDC by a Turnkey-custodied wallet on Base + Tempo via x402. No human in the loop per call. Plugin: <code>keeperhub-rail</code>, three tools, one mounted endpoint.",
+    a: "Gas — the agent's hot wallet on Sepolia + 0G. Endpoints — KeeperHub. Sellers can price their <code>/rfq</code> endpoint via <code>HTTP 402</code> (anti-spam: $0.001 USDC per quote request to discourage 50-way fan-outs from quote-fishing agents). Buyers' Turnkey-custodied KeeperHub wallet on Base + Tempo handles the 402 retry transparently — same rail covers paid oracles, sanctions checks, logistics APIs. Plugin: <code>keeperhub-rail</code>, three tools, one mounted endpoint.",
   },
   {
     q: "What stops the agents from colluding or lying?",
