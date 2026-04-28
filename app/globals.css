@@ -1828,3 +1828,135 @@ footer {
   font-style: italic;
   color: color-mix(in srgb, var(--ink) 60%, transparent);
 }
+
+/* ── Two settlement modes ───────────────────────────────────────────── */
+.settle-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+@media (max-width: 960px) {
+  .settle-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.settle-card {
+  border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  padding: 28px;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+}
+.settle-card-direct {
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 5%, transparent) 0%,
+    transparent 100%
+  );
+}
+.settle-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  gap: 12px;
+}
+.settle-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
+}
+.settle-badge-shipped {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  color: var(--accent);
+}
+.settle-badge-spec {
+  border-color: color-mix(in srgb, var(--policy, #b08cff) 50%, transparent);
+  color: var(--policy, #b08cff);
+}
+.settle-status {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+.settle-title {
+  margin: 0 0 6px;
+  font-size: 24px;
+  letter-spacing: -0.01em;
+}
+.settle-tag {
+  margin: 0 0 22px;
+  font-style: italic;
+  color: color-mix(in srgb, var(--ink) 70%, transparent);
+}
+.settle-attrs {
+  margin: 0 0 18px;
+  display: grid;
+  gap: 10px;
+}
+.settle-attrs > div {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 12px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.settle-attrs dt {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+  padding-top: 2px;
+}
+.settle-attrs dd {
+  margin: 0;
+}
+.settle-examples-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+  margin: 8px 0 6px;
+}
+.settle-examples {
+  margin: 0 0 22px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+.settle-examples li {
+  font-size: 14px;
+  padding-left: 18px;
+  position: relative;
+}
+.settle-examples li::before {
+  content: "→";
+  position: absolute;
+  left: 0;
+  color: color-mix(in srgb, var(--ink) 50%, transparent);
+}
+.settle-card-direct .settle-examples li::before {
+  color: var(--accent);
+}
+.settle-link {
+  margin-top: auto;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+  align-self: flex-start;
+  padding-bottom: 1px;
+}
+.settle-link:hover {
+  opacity: 0.85;
+}

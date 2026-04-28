@@ -846,3 +846,68 @@ export const STACK_AGNOSTIC = {
     { label: "yours next?", loc: 0, status: "stub" as const, href: "https://github.com/rodrigoarias12/open-deal/blob/main/IMPLEMENTERS.md" },
   ],
 };
+
+// ─────────────────────────────────────────────────────────────────────────
+// Two settlement modes — escrow.v1 (heavy B2B) + direct.v1 (atomic A2A)
+// ─────────────────────────────────────────────────────────────────────────
+
+export type SettlementMode = {
+  id: string;
+  badge: string;
+  title: string;
+  tagline: string;
+  useCase: string;
+  settlement: string;
+  latency: string;
+  audit: string;
+  disputes: string;
+  examples: string[];
+  status: "shipped" | "spec";
+  specRef: string;
+};
+
+export const SETTLEMENT_MODES: SettlementMode[] = [
+  {
+    id: "escrow",
+    badge: "escrow.v1",
+    title: "Escrow mode",
+    tagline: "When something physical or non-atomic moves.",
+    useCase:
+      "B2B procurement, physical goods, multi-day delivery — the default for the procurement flow.",
+    settlement:
+      "Onchain escrow contract. createOrder → confirmShipment → release / refund / dispute.",
+    latency: "minutes (chain confirms + shipment)",
+    audit: "L3 mandatory — every state transition anchored on 0G.",
+    disputes: "Built-in dispute window + refund.",
+    examples: [
+      "Logistics carriers quoting on shipments",
+      "Construction materials reorders",
+      "Industrial supplies replenishment",
+    ],
+    status: "shipped",
+    specRef:
+      "https://github.com/rodrigoarias12/open-deal/blob/main/PROTOCOL.md#41-escrow-mode--procurementsettlementv1escrowv1",
+  },
+  {
+    id: "direct",
+    badge: "direct.v1",
+    title: "Direct mode",
+    tagline: "When the response IS the good.",
+    useCase:
+      "Atomic agent-to-agent purchases. Settlement and delivery in the same HTTP request via x402.",
+    settlement:
+      "Buyer hits paid endpoint → 402 with payment ask → buyer pays → seller returns signed response. No escrow, no human, no dispute window.",
+    latency: "sub-second",
+    audit: "L3 optional. Signed response is the recourse.",
+    disputes: "None — reputation + stop using that seller.",
+    examples: [
+      "Paid oracle calls (price feed, sanctions check)",
+      "Premium catalog tier (per-query pricing)",
+      "Anti-spam paid RFQ ($0.001 USDC per quote)",
+      "Signed credentials from identity providers",
+    ],
+    status: "spec",
+    specRef:
+      "https://github.com/rodrigoarias12/open-deal/blob/main/PROTOCOL.md#42-direct-mode--procurementsettlementv1directv1",
+  },
+];

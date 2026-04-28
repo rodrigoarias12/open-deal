@@ -46,6 +46,7 @@ export function Topbar() {
           <a href="#precedent">precedent</a>
           <a href="#loop">the loop</a>
           <a href="#framework">framework</a>
+          <a href="#settlement">settlement</a>
           <a href="#demo">demo</a>
           <a href="#audit">audit</a>
           <a href="#faq">faq</a>

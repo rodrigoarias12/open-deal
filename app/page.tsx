@@ -16,6 +16,7 @@ import {
   PILLARS,
   PLUGINS,
   PROJECT_DEAL,
+  SETTLEMENT_MODES,
   SPONSORS,
   STACK_AGNOSTIC,
   VERTICALS,
@@ -424,6 +425,97 @@ export default function Landing() {
               AX-first guide — feed it to Claude / GPT, get a conformant adapter back
             </span>
           </div>
+        </div>
+      </section>
+
+      <section id="settlement">
+        <div className="container">
+          <div className="section-tag">two settlement modes</div>
+          <h2
+            className="section-title"
+            style={{ textAlign: "center", margin: "0 auto 24px", maxWidth: 880 }}
+          >
+            B2B procurement isn&rsquo;t the only shape. The spec covers{" "}
+            <span className="em">both.</span>
+          </h2>
+          <p
+            className="section-lede"
+            style={{ textAlign: "center", margin: "0 auto 56px", maxWidth: 720 }}
+          >
+            Heavy multi-step procurement and atomic agent-to-agent purchases
+            are different transactions, with different latency, audit and
+            dispute requirements. Open Deal v0.1 declares both modes and lets
+            sellers advertise either or both via a single ENS text record.
+          </p>
+
+          <div className="settle-grid">
+            {SETTLEMENT_MODES.map((m) => (
+              <div key={m.id} className={`settle-card settle-card-${m.id}`}>
+                <div className="settle-head">
+                  <span className={`settle-badge settle-badge-${m.status}`}>
+                    {m.badge}
+                  </span>
+                  <span className="settle-status">
+                    {m.status === "shipped" ? "✓ shipped" : "⏳ spec-complete · impl pending"}
+                  </span>
+                </div>
+                <h3 className="settle-title">{m.title}</h3>
+                <p className="settle-tag">{m.tagline}</p>
+
+                <dl className="settle-attrs">
+                  <div>
+                    <dt>use case</dt>
+                    <dd>{m.useCase}</dd>
+                  </div>
+                  <div>
+                    <dt>settlement</dt>
+                    <dd>{m.settlement}</dd>
+                  </div>
+                  <div>
+                    <dt>latency</dt>
+                    <dd className="mono">{m.latency}</dd>
+                  </div>
+                  <div>
+                    <dt>audit</dt>
+                    <dd>{m.audit}</dd>
+                  </div>
+                  <div>
+                    <dt>disputes</dt>
+                    <dd>{m.disputes}</dd>
+                  </div>
+                </dl>
+
+                <div className="settle-examples-label">examples</div>
+                <ul className="settle-examples">
+                  {m.examples.map((ex) => (
+                    <li key={ex}>{ex}</li>
+                  ))}
+                </ul>
+
+                <a
+                  className="settle-link"
+                  href={m.specRef}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  read PROTOCOL.md §{m.id === "escrow" ? "4.1" : "4.2"} →
+                </a>
+              </div>
+            ))}
+          </div>
+
+          <p
+            className="section-lede"
+            style={{ textAlign: "center", margin: "48px auto 0", maxWidth: 720 }}
+          >
+            <span className="mono" style={{ color: "var(--accent)" }}>
+              procurement.settlement-modes = &quot;escrow.v1,direct.v1&quot;
+            </span>
+            <br />
+            <span style={{ fontSize: "0.95rem", opacity: 0.8 }}>
+              one ENS text record · sellers advertise either or both · buyers MAY require a specific mode in the RFQ
+            </span>
+          </p>
         </div>
       </section>
 

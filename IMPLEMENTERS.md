@@ -41,10 +41,35 @@ The protocol layer **never changes**. Your stack does. That's the entire point.
 
 ---
 
+## Two settlement modes — pick one (or both)
+
+Open Deal supports two modes of value transfer. Pick the one that matches
+your transaction shape; sellers can advertise both.
+
+| | **Escrow mode** (`escrow.v1`) | **Direct mode** (`direct.v1`) |
+|---|---|---|
+| **Use case** | Physical goods, B2B procurement, anything with shipment / multi-day delivery / disputes | Atomic agent-to-agent purchases — paid APIs, oracle data, signed credentials, model inferences, sanctions checks, premium catalog tiers |
+| **Settlement** | Onchain escrow contract: `createOrder → confirmShipment → release / refund / dispute` | x402: buyer pays in the same HTTP request that delivers the resource |
+| **Latency** | Minutes (waiting for chain confirms + shipment) | Sub-second |
+| **Audit** | Required (L3 mandatory) | Optional (signed responses are the recourse) |
+| **Disputes** | Built-in dispute window | None — reputation + stop using that seller |
+| **Spec ref** | [PROTOCOL.md §4.1](./PROTOCOL.md#41-escrow-mode--procurementsettlementv1escrowv1) | [PROTOCOL.md §4.2](./PROTOCOL.md#42-direct-mode--procurementsettlementv1directv1) |
+| **Reference impl** | ✓ shipped (Sepolia escrow + 0G audit) | ⏳ spec-complete; impl pending |
+
+**Heuristic.** If the response IS the good (data, oracle, signed credential,
+API call), use direct. If something physical or non-atomic is being moved
+(goods, services with delivery cycle), use escrow.
+
+You can implement only one mode and still be conformant — sellers declare
+which modes they offer via the `procurement.settlement-modes` ENS text
+record. Buyers MAY require a specific mode in their RFQ.
+
+---
+
 ## Three conformance levels
 
-Pick the level your implementation targets. Each one is a strict superset
-of the previous.
+Pick the level your implementation targets within your chosen mode. Each
+level is a strict superset of the previous.
 
 ### L1 — Discoverable
 
@@ -78,19 +103,32 @@ curl -X POST <your endpoint> \
 
 ### L2 — Settlement
 
-Everything in L1 + you can **lock and release real funds onchain**:
+Everything in L1 + you can **transfer value between parties**, in whichever
+mode(s) you support.
+
+#### L2 in escrow mode (`escrow.v1`)
 
 | Requirement | What it means |
 |---|---|
-| Use a `procurement.escrow.v1`-conformant contract | five state transitions: createOrder, confirmShipment, release, refund, dispute |
+| Use a `procurement.settlement.v1/escrow.v1`-conformant contract | five state transitions: createOrder, confirmShipment, release, refund, dispute |
 | Buyers lock funds before any goods move | onchain proof of intent |
 | Release on shipment confirmation | trackingHash committed onchain |
 | Honor the dispute window | buyer can dispute within N seconds of `confirmShipment` |
 
 The reference contract is at `0x43b31222B22C35D0E5134d03D3f9bb18182360b8` on
-Sepolia. Anyone can deploy a compatible escrow on any EVM chain — the
-interface is documented in
-[PROTOCOL.md §4](./PROTOCOL.md#4-procurementescrowv1--settlement).
+Sepolia. Anyone can deploy a compatible escrow on any EVM chain.
+
+#### L2 in direct mode (`direct.v1`)
+
+| Requirement | What it means |
+|---|---|
+| Endpoint returns `HTTP 402` on first request | with `X-Payment-{Network,Token,Amount,To,Nonce}` headers |
+| Verify payment proof on retry | match the `X-Payment-Proof` against the issued nonce + amount + recipient |
+| Sign the response payload | with the wallet at `procurement.signature-pubkey` (or `addr`) — buyer's only recourse |
+| Idempotent delivery | same payment proof → same response, no double-charging |
+
+The interface is documented in
+[PROTOCOL.md §4](./PROTOCOL.md#4-procurementsettlementv1--settlement).
 
 ### L3 — Auditable
 
