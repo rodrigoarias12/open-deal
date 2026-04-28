@@ -757,7 +757,7 @@ export const AUTHOR = {
 export const WAITLIST = {
   // TODO: replace with the real Tally URL once the form is created.
   // Spec for the form is in the project notes.
-  url: "https://tally.so/r/PLACEHOLDER",
+  url: "https://tally.so/r/MeryQ0",
   title: "Get on the network",
   copy: "Open Deal v0.2 ships in May 2026 with multi-round negotiation, mainnet escrow, and Bridge.xyz off-ramp. If your company feels the procurement-by-spreadsheet pain — logistics, real estate, retail, manufacturing — drop your details. We'll reach out within 48h.",
   cta: "join the waitlist",
