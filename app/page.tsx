@@ -7,11 +7,15 @@ import { Topbar } from "./components/Topbar";
 import {
   ARCH_DIAGRAM,
   ARTIFACTS,
+  AUTHOR,
+  FOOTER_LINKS,
   ONCHAIN_ARTIFACTS,
   PILLARS,
   PLUGINS,
   PROJECT_DEAL,
   SPONSORS,
+  VERTICALS,
+  WAITLIST,
 } from "./lib/landing-data";
 
 export const dynamic = "force-static";
@@ -297,60 +301,188 @@ export default function Landing() {
         </div>
       </section>
 
+      <section id="verticals">
+        <div className="container">
+          <div className="section-tag">where this fits</div>
+          <h2 className="section-title">
+            Three industries. Same wedge: high SKU repetition × wide vendor universe × manual price-shopping.
+          </h2>
+          <p className="section-lede">
+            We talked to operators in two of these and the third is the obvious
+            extension. The framework is the same; only the connectors and
+            policy records change per vertical.
+          </p>
+          <div className="verticals-grid">
+            {VERTICALS.map((v, i) => (
+              <div key={i} className="vertical">
+                <div className="vertical-eyebrow">{v.eyebrow}</div>
+                <h3 className="vertical-title">{v.title}</h3>
+                <p className="vertical-body">{v.body}</p>
+                <a className="vertical-cta" href={WAITLIST.url} target="_blank" rel="noreferrer">
+                  {v.cta} <span className="btn-arrow">→</span>
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="waitlist">
+        <div className="container">
+          <div className="waitlist-card">
+            <div>
+              <div className="section-tag">{WAITLIST.title.toLowerCase()}</div>
+              <h2 className="section-title">{WAITLIST.title}.</h2>
+              <p className="section-lede">{WAITLIST.copy}</p>
+              <div className="hero-ctas" style={{ marginTop: 20 }}>
+                <a
+                  className="btn btn-primary"
+                  href={WAITLIST.url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {WAITLIST.cta} <span className="btn-arrow">→</span>
+                </a>
+                <a
+                  className="btn"
+                  href={`mailto:${AUTHOR.email}?subject=Open%20Deal`}
+                >
+                  email me <span className="btn-arrow">→</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="builder">
+        <div className="container">
+          <div className="builder-row">
+            <div className="builder-meta">
+              <div className="section-tag">built by</div>
+              <h2 className="section-title">
+                {AUTHOR.name}.
+              </h2>
+              <p className="section-lede">{AUTHOR.bio}</p>
+              <div className="builder-links">
+                <a className="builder-link" href={AUTHOR.linkedin} target="_blank" rel="noreferrer">
+                  <span className="builder-link-icon">in</span>
+                  <span>linkedin / rodrigogonzaloarias</span>
+                </a>
+                <a className="builder-link" href={AUTHOR.twitter} target="_blank" rel="noreferrer">
+                  <span className="builder-link-icon">𝕏</span>
+                  <span>{AUTHOR.twitterHandle}</span>
+                </a>
+                <a className="builder-link" href={`mailto:${AUTHOR.email}`}>
+                  <span className="builder-link-icon">@</span>
+                  <span>{AUTHOR.email}</span>
+                </a>
+                <a className="builder-link" href={AUTHOR.github} target="_blank" rel="noreferrer">
+                  <span className="builder-link-icon">⌨</span>
+                  <span>github / rodrigoarias12</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <footer>
         <div className="container">
           <div className="footer-grid">
             <div className="footer-brand-block">
               <div className="brand">
-                <span className="brand-mark" />
+                <img
+                  src="/logo.png"
+                  alt="Open Deal"
+                  width={28}
+                  height={28}
+                  style={{ display: "block", borderRadius: 6 }}
+                />
                 <span className="brand-name">
-                  agentic<span className="dim"> </span>erp
+                  open<span className="dim"> </span>deal
                 </span>
               </div>
               <p>
-                Two autonomous agents trading B2B under ENS-resolved policy, with escrow on Sepolia
-                and audit anchored on 0G. Three OpenClaw plugins any agent can adopt. Built solo for
-                ETHGlobal Open Agents.
+                Open onchain framework for trust-minimized agent-mediated
+                trade. Identity on ENS, audit on 0G, escrow on Sepolia. Built
+                solo for ETHGlobal Open Agents — and shipping past it.
               </p>
+              <div className="footer-social">
+                <a href={AUTHOR.linkedin} target="_blank" rel="noreferrer" aria-label="LinkedIn">
+                  <span>in</span>
+                </a>
+                <a href={AUTHOR.twitter} target="_blank" rel="noreferrer" aria-label="X / Twitter">
+                  <span>𝕏</span>
+                </a>
+                <a href={`mailto:${AUTHOR.email}`} aria-label="Email">
+                  <span>@</span>
+                </a>
+                <a href={AUTHOR.github} target="_blank" rel="noreferrer" aria-label="GitHub">
+                  <span>⌨</span>
+                </a>
+              </div>
             </div>
+
             <div className="footer-col">
-              <div className="footer-col-title">code</div>
+              <div className="footer-col-title">product</div>
               <ul>
+                {FOOTER_LINKS.product.map((l) => (
+                  <li key={l.href}>
+                    <a
+                      href={l.href}
+                      target={l.href.startsWith("http") ? "_blank" : undefined}
+                      rel={l.href.startsWith("http") ? "noreferrer" : undefined}
+                    >
+                      {l.label}
+                      {l.href.startsWith("http") && " ↗"}
+                    </a>
+                  </li>
+                ))}
                 <li>
-                  <a href="https://github.com" target="_blank" rel="noreferrer">
-                    github ↗
+                  <a href={WAITLIST.url} target="_blank" rel="noreferrer">
+                    waitlist ↗
                   </a>
-                </li>
-                <li>
-                  <a href="#framework">plugins</a>
-                </li>
-                <li>
-                  <a href="#audit">audit format</a>
                 </li>
               </ul>
             </div>
+
             <div className="footer-col">
-              <div className="footer-col-title">submission</div>
+              <div className="footer-col-title">build</div>
               <ul>
+                {FOOTER_LINKS.build.map((l) => (
+                  <li key={l.href}>
+                    <a href={l.href} target="_blank" rel="noreferrer">
+                      {l.label} ↗
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="footer-col">
+              <div className="footer-col-title">references</div>
+              <ul>
+                {FOOTER_LINKS.references.map((l) => (
+                  <li key={l.href}>
+                    <a href={l.href} target="_blank" rel="noreferrer">
+                      {l.label} ↗
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="footer-col">
+              <div className="footer-col-title">onchain</div>
+              <ul className="footer-onchain">
                 <li>
                   <a
-                    href="https://ethglobal.com/events/openagents"
+                    href={`${ARTIFACTS.ensApp}/${ARTIFACTS.agentEns}`}
                     target="_blank"
                     rel="noreferrer"
                   >
-                    ETHGlobal ↗
-                  </a>
-                </li>
-                <li>
-                  <a href="/dashboard">live dashboard</a>
-                </li>
-                <li>
-                  <a
-                    href={`${ARTIFACTS.zgExplorer}/address/${ARTIFACTS.anchor}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    0g explorer ↗
+                    {ARTIFACTS.agentEns} ↗
                   </a>
                 </li>
                 <li>
@@ -359,26 +491,34 @@ export default function Landing() {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    sepolia explorer ↗
+                    escrow {ARTIFACTS.escrowShort} ↗
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href={`${ARTIFACTS.zgExplorer}/address/${ARTIFACTS.anchor}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    anchor {ARTIFACTS.anchorShort} ↗
                   </a>
                 </li>
               </ul>
             </div>
-            <div className="footer-col">
-              <div className="footer-col-title">onchain</div>
-              <ul>
-                <li>
-                  <span className="footer-ens">{ARTIFACTS.agentEns}</span>
-                </li>
-                <li>signer {ARTIFACTS.agentWalletShort}</li>
-                <li>escrow {ARTIFACTS.escrowShort} · sepolia</li>
-                <li>anchor {ARTIFACTS.anchorShort} · 0g galileo</li>
-              </ul>
-            </div>
           </div>
+
+          <div className="footer-sponsors">
+            <span className="footer-sponsors-label">built with</span>
+            {SPONSORS.map((s) => (
+              <a key={s.name} href={s.href} target="_blank" rel="noreferrer">
+                {s.name}
+              </a>
+            ))}
+          </div>
+
           <div className="footer-bottom">
-            <span>built solo · rodrigo · 2026</span>
-            <span>v0.5.0 · sepolia + 0g galileo</span>
+            <span>© 2026 {AUTHOR.name}. MIT licensed.</span>
+            <span>v0.6.0 · sepolia + 0g galileo · open deal protocol v0.1</span>
           </div>
         </div>
       </footer>

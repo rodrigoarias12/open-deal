@@ -739,3 +739,67 @@ export const PROJECT_DEAL = {
     },
   ] satisfies ProjectDealRow[],
 };
+
+// ─────────────────────────────────────────────────────────────────────────
+// Author + waitlist + footer surfaces
+// ─────────────────────────────────────────────────────────────────────────
+
+export const AUTHOR = {
+  name: "Rodrigo Gonzalo Arias",
+  bio: "Solo builder. Background in fintech (Paydece), shipping payment + identity rails for emerging-market commerce. Building Open Deal full-time after the hackathon.",
+  linkedin: "https://www.linkedin.com/in/rodrigogonzaloarias/",
+  twitter: "https://x.com/rodrigo_arias12",
+  twitterHandle: "@rodrigo_arias12",
+  email: "rodrigogonzaloarias@gmail.com",
+  github: "https://github.com/rodrigoarias12/open-deal",
+};
+
+export const WAITLIST = {
+  // TODO: replace with the real Tally URL once the form is created.
+  // Spec for the form is in the project notes.
+  url: "https://tally.so/r/PLACEHOLDER",
+  title: "Get on the network",
+  copy: "Open Deal v0.2 ships in May 2026 with multi-round negotiation, mainnet escrow, and Bridge.xyz off-ramp. If your company feels the procurement-by-spreadsheet pain — logistics, real estate, retail, manufacturing — drop your details. We'll reach out within 48h.",
+  cta: "join the waitlist",
+};
+
+export const VERTICALS = [
+  {
+    eyebrow: "logistics · emerging markets",
+    title: "Carrier price-hunting on WhatsApp + Excel.",
+    body: "Every shipment is a manual price comparison across a fragmented carrier base. Hours per week per ops person. We talked to two operators — both described the same workflow. Open Deal turns it into a 30-second buyer-agent tick: fan-out RFQ to N carriers via ENS subnames, signed quotes, escrow release on shipment-proof, full audit trail.",
+    cta: "talk to us",
+  },
+  {
+    eyebrow: "real estate · construction materials",
+    title: "Re-quoting the same shopping list every project.",
+    body: "Cement, rebar, drywall, fixtures, paint. The vendor universe is wide, the comparison is mechanical, the savings compound across the portfolio. PM drops their list (Excel buyer connector), agent compares against N hosted seller catalogs on 0G, human approves only outliers via Telegram. Same framework, different connectors.",
+    cta: "talk to us",
+  },
+  {
+    eyebrow: "retail · e-commerce · manufacturing",
+    title: "Anything with high SKU repetition + wide vendor universe.",
+    body: "Three properties define the wedge: high SKU repetition, wide vendor universe, and price-shopping currently done by humans copying numbers between tabs. If your industry hits all three, the framework fits. We're picking design partners for v0.2 — get on the waitlist.",
+    cta: "talk to us",
+  },
+];
+
+export const FOOTER_LINKS = {
+  product: [
+    { label: "Onboard a seller", href: "/sell" },
+    { label: "Live dashboard", href: "/dashboard" },
+    { label: "Open Deal protocol", href: "https://github.com/rodrigoarias12/open-deal/blob/main/PROTOCOL.md" },
+    { label: "Architecture", href: "https://github.com/rodrigoarias12/open-deal/blob/main/ARCHITECTURE.md" },
+  ],
+  build: [
+    { label: "GitHub", href: "https://github.com/rodrigoarias12/open-deal" },
+    { label: "Plugins (npm)", href: "https://github.com/rodrigoarias12/open-deal/tree/main/plugins" },
+    { label: "Builder feedback", href: "https://github.com/rodrigoarias12/open-deal/blob/main/FEEDBACK.md" },
+    { label: "Reference apps", href: "https://github.com/rodrigoarias12/open-deal/tree/main/apps" },
+  ],
+  references: [
+    { label: "Anthropic Project Deal", href: "https://www.anthropic.com/features/project-deal" },
+    { label: "Anthropic Agent Skills", href: "https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills" },
+    { label: "ETHGlobal Open Agents", href: "https://ethglobal.com/events/openagents" },
+  ],
+};
