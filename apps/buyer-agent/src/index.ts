@@ -6,6 +6,12 @@ import auditPlugin from "../../../plugins/audit-to-0g/src/index.js";
 import { pickBuyerConnector } from "../../../src/connectors/buyer/factory.js";
 import { TelegramApprover, type ApprovalResult } from "../../../src/notify/telegram.js";
 import { readHistoryFrom0G } from "./history-from-0g.js";
+import {
+  loadCatalogFromUri,
+  buildSkuIndex,
+  type IndexedSeller,
+} from "../../../src/catalog/loader.js";
+import type { Catalog } from "../../../src/connectors/seller/types.js";
 
 interface Need {
   sku: string;
@@ -26,6 +32,8 @@ interface SellerEntry {
   ens: string;
   endpoint: string;
   address: string;
+  catalog_uri?: string;
+  categories?: string[];
 }
 
 interface SellerRegistry {
@@ -164,18 +172,81 @@ async function resolveSellers(
       console.log(`[buyer]   × ${ens} → no resolver`);
       continue;
     }
-    const [endpoint, addrRaw] = await Promise.all([
+    const [endpoint, addrRaw, catalogUri, categoriesRaw] = await Promise.all([
       resolver.getText("endpoint"),
       resolver.getAddress(),
+      resolver.getText("catalog-uri").catch(() => null),
+      resolver.getText("categories").catch(() => null),
     ]);
     if (!endpoint) {
       console.log(`[buyer]   × ${ens} → no 'endpoint' text record`);
       continue;
     }
-    out.push({ ens, endpoint, address: addrRaw ?? "" });
-    console.log(`[buyer]   ✓ ${ens} → endpoint=${endpoint}, addr=${addrRaw ?? "(none)"}`);
+    const categories = categoriesRaw
+      ? categoriesRaw.split(",").map((c) => c.trim().toLowerCase()).filter(Boolean)
+      : undefined;
+    out.push({
+      ens,
+      endpoint,
+      address: addrRaw ?? "",
+      catalog_uri: catalogUri ?? undefined,
+      categories,
+    });
+    const tags = [
+      `endpoint=${endpoint}`,
+      catalogUri ? `catalog=${catalogUri.slice(0, 32)}…` : "no-catalog",
+      categories?.length ? `cats=[${categories.join(",")}]` : null,
+    ].filter(Boolean);
+    console.log(`[buyer]   ✓ ${ens} → ${tags.join(", ")}`);
   }
   return out;
+}
+
+/**
+ * Discovery step 2: pull each seller's catalog (procurement.catalog-uri)
+ * and build a SKU → sellers index. Sellers that fail to publish a
+ * catalog stay in the registry for endpoint discovery but contribute
+ * nothing to the index — they'll only be RFQ'd if their categories or
+ * a manual override matches.
+ *
+ * The buyer ONLY fan-outs RFQs to sellers indexed for the requested
+ * SKU. This is what lets the protocol scale past a single hardcoded
+ * sellers.json — the index can grow to N sellers without any change
+ * in the RFQ surface.
+ */
+async function fetchCatalogsAndIndex(
+  sellers: SellerEntry[],
+): Promise<{
+  index: Map<string, IndexedSeller<SellerEntry>[]>;
+  totals: { ok: number; skipped: number; total_skus: number };
+}> {
+  const indexed: IndexedSeller<SellerEntry>[] = [];
+  let ok = 0;
+  let skipped = 0;
+  for (const seller of sellers) {
+    if (!seller.catalog_uri) {
+      console.log(`[buyer]   ⏭  ${seller.ens} → no catalog-uri (excluded from SKU index)`);
+      skipped += 1;
+      continue;
+    }
+    try {
+      const catalog: Catalog = await loadCatalogFromUri(seller.catalog_uri);
+      const skuList = catalog.items.map((i) => i.sku).join(", ");
+      console.log(
+        `[buyer]   ✓ ${seller.ens} → ${catalog.items.length} SKU(s) [${skuList}]`,
+      );
+      indexed.push({ seller, catalog });
+      ok += 1;
+    } catch (e) {
+      console.log(
+        `[buyer]   ⚠ ${seller.ens} → catalog fetch failed (${(e as Error).message}) — excluded from index`,
+      );
+      skipped += 1;
+    }
+  }
+  const index = buildSkuIndex(indexed);
+  const total_skus = index.size;
+  return { index, totals: { ok, skipped, total_skus } };
 }
 
 interface Purchase {
@@ -371,11 +442,21 @@ async function main(): Promise<void> {
 
   const ensRpc =
     process.env.MAINNET_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com";
-  console.log(`[buyer] resolving sellers from ENS (${ensRpc})…`);
+  console.log(`[buyer] discovery step 1/2 — resolving sellers from ENS (${ensRpc})…`);
   const sellers = await resolveSellers(registry.sellers, ensRpc);
   if (sellers.length === 0) {
     throw new Error("no sellers resolved from ENS — abort");
   }
+
+  console.log(
+    `[buyer] discovery step 2/2 — fetching catalogs from procurement.catalog-uri…`,
+  );
+  const { index: skuIndex, totals: catalogTotals } = await fetchCatalogsAndIndex(
+    sellers,
+  );
+  console.log(
+    `[buyer] indexed ${catalogTotals.total_skus} unique SKU(s) across ${catalogTotals.ok} seller(s) (${catalogTotals.skipped} skipped — no catalog or fetch failed)`,
+  );
 
   const policyTools = loadPlugin(policyPlugin as never);
   const auditTools = loadPlugin(auditPlugin as never);
@@ -388,9 +469,37 @@ async function main(): Promise<void> {
   for (const need of needs) {
     const rfqId = `rfq-${Date.now()}-${need.sku}`;
     console.log(`\n[buyer] need: ${need.sku} x${need.quantity} (${need.reason})`);
-    console.log(`[buyer] broadcasting ${rfqId}…`);
 
-    const quotes = await broadcastRfq(sellers, rfqId, need, buyer);
+    // SKU-targeted fan-out: only RFQ sellers whose catalog carries this
+    // SKU. Sellers without a published catalog OR with a fetch failure
+    // are still tried as a fallback (preserves backward-compat with
+    // self-hosted sellers that haven't set catalog-uri yet).
+    const indexed = skuIndex.get(need.sku) ?? [];
+    const indexedEnsSet = new Set(indexed.map((e) => e.seller.ens));
+    const fallback = sellers.filter(
+      (s) => !s.catalog_uri && !indexedEnsSet.has(s.ens),
+    );
+    const targets = [...indexed.map((e) => e.seller), ...fallback];
+    if (targets.length === 0) {
+      console.log(
+        `[buyer]   no seller carries SKU ${need.sku} (registry of ${sellers.length}, indexed ${catalogTotals.ok}) — skipping`,
+      );
+      continue;
+    }
+    console.log(
+      `[buyer]   SKU index → ${indexed.length} match(es), ${fallback.length} no-catalog fallback(s) — RFQ targets: ${targets.length}/${sellers.length}`,
+    );
+    for (const t of indexed) {
+      const item = t.catalog.items.find((i) => i.sku === need.sku);
+      if (item) {
+        console.log(
+          `[buyer]     · ${t.seller.ens} carries ${need.sku} @ list $${item.unit_price_usd}/u (stock ${item.stock})`,
+        );
+      }
+    }
+    console.log(`[buyer] broadcasting ${rfqId} to ${targets.length} seller(s)…`);
+
+    const quotes = await broadcastRfq(targets, rfqId, need, buyer);
     if (quotes.length === 0) {
       console.log(`[buyer] no quotes for ${need.sku} — skipping`);
       continue;

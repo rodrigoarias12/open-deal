@@ -1,16 +1,20 @@
-# Open Deal Protocol — v0.1
+# Open Deal Protocol — v0.1 (single-implementation draft)
 
-> **Open standard for autonomous, trust-minimized agent-mediated trade.** Anyone
-> can implement either side of this protocol — buyer or seller — in any language,
-> on any chain that has the canonical ENS registry.
+> **Reference spec for autonomous, trust-minimized agent-mediated trade.** This
+> document is the wire-format and onchain-interface contract that any buyer or
+> seller agent — in any language, on any chain with the canonical ENS registry —
+> would need to interoperate with our reference implementation.
+>
+> **Status: v0.1, one implementation.** The hosted endpoints at
+> `agentic-erp-eth.vercel.app` and the `apps/buyer-agent/` + `apps/seller-agent/`
+> reference code are *the* implementation today. The spec is published openly so
+> a second implementation can be built without coordination — that's the test
+> Open Deal needs to pass to graduate from spec to standard.
 >
 > Anthropic's Project Deal (Apr 2026) validated demand for agent-mediated commerce;
 > their own report named the gap: *"Policy and legal frameworks around AI models
-> that transact on our behalf simply don't exist yet."* Open Deal is that framework.
->
-> The hosted endpoints at `open-deal.vercel.app` (alias `agentic-erp-eth.vercel.app` —
-> *Agentic ERP* is the first reference B2B app built on Open Deal) are *one*
-> implementation, not the only one.
+> that transact on our behalf simply don't exist yet."* Open Deal is one shape
+> that gap could take.
 
 The protocol normalizes 5 things so a buyer agent built by team A can find,
 quote, settle, and audit a transaction with a seller agent built by team B
@@ -63,6 +67,27 @@ A counterparty resolves a discovered ENS name `<name>.<root>.eth` and reads:
 3. `procurement.catalog-uri` → catalog source
 
 If `endpoint` is missing, the seller is not currently online. Skip.
+
+### SKU-targeted RFQ (the discovery loop)
+
+Buyers SHOULD perform discovery in two steps before any RFQ is sent:
+
+1. **Resolve.** For every name in the seller registry (or seller candidate
+   list), read `endpoint` + `catalog-uri` from ENS.
+2. **Index.** Pull each catalog (per `procurement.catalog.v1` §2), build a
+   local map of `sku → [seller…]`. Sellers without a published catalog stay
+   in the registry as a no-catalog fallback (only RFQ'd if their `categories`
+   match, or as a last resort if the SKU index has zero hits).
+3. **Targeted fan-out.** When a need arrives for SKU `X`, the buyer ONLY
+   broadcasts RFQs to sellers whose catalog contains `X`. A registry of N
+   sellers generates `|index[X]|` RFQs, not N.
+
+This is what lets the protocol scale past a hardcoded sellers.json: the
+RFQ surface stays linear in the number of *capable* sellers, not in the
+size of the network.
+
+The reference `apps/buyer-agent/` runs this loop on every tick. See
+`src/catalog/loader.ts` for the loader + `buildSkuIndex()` helper.
 
 ---
 

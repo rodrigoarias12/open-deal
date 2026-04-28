@@ -1,21 +1,25 @@
 # Open Deal — agent commerce protocol
 
-**The open, onchain framework for trust-minimized agent-mediated trade.**
-Anthropic's [Project Deal](https://www.anthropic.com/features/project-deal) (April 2026)
-ran the closed, in-office, off-chain version of this idea — 69 employees, 186 deals,
-$4K transacted, 46% would pay for it. Their report named the gap:
+**Two agents trade. Neither trusts the other.**
+Discovery on **ENS**. Escrow on **Sepolia**. Audit on **0G**. Autonomous payments via **KeeperHub**.
+The first open protocol for agent-mediated trade — already onchain, already running.
+
+Anthropic's [Project Deal](https://www.anthropic.com/features/project-deal) (Apr 2026)
+ran the closed, in-office, off-chain version — 69 employees, 186 deals, $4K transacted,
+46% would pay for it. Their own report named the gap:
 
 > *"Policy and legal frameworks around AI models that transact on our behalf simply
 > don't exist yet."*
 
-**Open Deal is that framework.** Three composable plugins (policy gate via ENS,
-verifiable audit on 0G, autonomous x402 payments via KeeperHub) plus reference
-agents on both sides of the trade.
+**Open Deal is that framework.** Three composable OpenClaw plugins (`policy-from-ens`,
+`audit-to-0g`, `keeperhub-rail`) plus two reference agents that exercise both sides
+of a real trade end-to-end.
 
 **Agentic ERP** is the first reference application built on Open Deal — autonomous
 B2B procurement: Odoo / Excel / SAP buyers discover Shopify / MercadoLibre / JSON
 sellers via ENS subnames, negotiate over HTTP, settle in escrow on Sepolia, anchor
-every decision on 0G Chain. Anyone can build their own app on the same framework.
+every decision on 0G Chain. The protocol is open; anyone can build a second
+implementation on either side.
 
 Built solo for [ETHGlobal Open Agents](https://ethglobal.com/events/openagents)
 (April 24 – May 6, 2026).
@@ -127,9 +131,13 @@ apps/seller-agent/  HTTP server on :3030
 
 apps/buyer-agent/   per-tick loop
   ├─ read inventory needs from real Odoo (fallback to fixture)
-  ├─ resolve seller endpoints from ENS subnames (text record `endpoint`)
-  ├─ broadcast RFQ to each seller, collect signed quotes
-  ├─ pattern-detect a recurring purchase + better-deal trigger
+  ├─ discovery step 1/2: resolve seller ENS subnames
+  │   text records: addr, endpoint, catalog-uri (per PROTOCOL.md §1)
+  ├─ discovery step 2/2: pull each seller's catalog (0g://… or https://…)
+  │   build SKU index → { sku → [sellers] } in memory
+  ├─ for each need: RFQ ONLY the sellers indexed for that SKU
+  │   "5 in registry, 2 carry PAPEL-A4-RES → fan-out 2 RFQs, not 5"
+  ├─ collect signed quotes + pattern-detect recurring purchase + better deal
   │   "3 past purchases at avg $10.10/u → new offer $6.50/u → 36% saving"
   ├─ policy gate via @openagents/openclaw-policy-from-ens
   ├─ ProcurementEscrow.createOrder() — buyer locks funds onchain
