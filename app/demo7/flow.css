@@ -1,0 +1,486 @@
+/* ─────────────────────────────────────────────────────────────
+ * demo7 — banded swimlane diagram
+ * Inspired by Anthropic's project-deal feature page, branded
+ * with our cream / sepia / accent-green editorial palette.
+ * All classes prefixed `.demo7-*` to avoid collisions.
+ * ───────────────────────────────────────────────────────────── */
+
+:root {
+  --demo7-sepia: #8B5A2B;
+  --demo7-sepia-soft: #F2E8D5;
+  --demo7-sepia-softer: #F5EDE0;
+}
+
+/* ───────── HERO SCAFFOLD ───────── */
+
+.demo7-hero {
+  padding: 56px 0 96px;
+  border-bottom: 1px solid var(--line);
+}
+
+.demo7-meta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 28px;
+}
+.demo7-meta-dot {
+  width: 6px; height: 6px;
+  background: var(--demo7-sepia);
+  border-radius: 50%;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--demo7-sepia) 60%, transparent);
+}
+
+.demo7-title {
+  font-family: 'Inter Tight', sans-serif;
+  font-size: clamp(48px, 7vw, 96px);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 0.96;
+  margin: 0 0 24px;
+  text-wrap: balance;
+  max-width: 980px;
+}
+.demo7-em {
+  font-style: italic;
+  font-family: 'Inter Tight', 'Times New Roman', serif;
+  font-weight: 400;
+  color: var(--demo7-sepia);
+}
+
+.demo7-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  color: var(--ink-dim);
+  letter-spacing: 0.01em;
+  margin: 0 0 56px;
+  max-width: 640px;
+}
+
+.demo7-divider {
+  height: 1px;
+  background: var(--line);
+  margin: 64px 0 32px;
+}
+
+.demo7-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+  font-family: 'JetBrains Mono', monospace;
+  margin-bottom: 40px;
+}
+.demo7-stat-label {
+  font-size: 11px; color: var(--ink-faint);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  margin-bottom: 8px;
+}
+.demo7-stat-value { font-size: 14px; color: var(--ink); }
+
+.demo7-cta-row { display: flex; gap: 12px; }
+
+.demo7-back {
+  padding: 24px 32px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--ink-faint);
+  max-width: 1280px;
+  margin: 0 auto;
+}
+.demo7-back a:hover { color: var(--ink); }
+
+/* ───────── DIAGRAM CONTAINER ───────── */
+
+.demo7-flow {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  /* Outer frame to feel like a single editorial figure. */
+  border: 1px solid var(--line-2);
+  background: var(--bg);
+}
+
+/* ───────── BANDS ───────── */
+
+.demo7-band {
+  position: relative;
+  padding: 36px 40px 40px;
+  border-bottom: 1px solid var(--line);
+}
+.demo7-band:last-child { border-bottom: none; }
+
+.demo7-band-human { background: var(--bg); }
+.demo7-band-auto {
+  background: var(--demo7-sepia-softer);
+  border-top: 1px solid color-mix(in srgb, var(--demo7-sepia) 28%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--demo7-sepia) 28%, transparent);
+}
+
+/* Narrower vertical padding for the mid-loop approval band — reads
+ * as a brief checkpoint rather than a full phase. */
+.demo7-band-thin {
+  padding-top: 24px;
+  padding-bottom: 24px;
+}
+
+.demo7-band-tag {
+  position: absolute;
+  top: 14px; left: 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+.demo7-band-tag-human { color: var(--ink-faint); }
+.demo7-band-tag-auto { color: var(--demo7-sepia); }
+.demo7-band-tag::before {
+  content: "";
+  display: inline-block;
+  width: 6px; height: 6px;
+  margin-right: 8px;
+  vertical-align: 1px;
+  background: currentColor;
+  opacity: 0.7;
+}
+
+.demo7-band-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding-top: 18px;
+}
+.demo7-band-inner-thin {
+  padding-top: 8px;
+  gap: 10px;
+}
+
+/* Mid-loop approval row: centred box plus a small italic callout
+ * that whispers "(only when needed)" without competing with it. */
+.demo7-approval-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+.demo7-approval-callout {
+  font-family: 'Inter Tight', 'Times New Roman', serif;
+  font-style: italic;
+  font-size: 13px;
+  color: var(--demo7-sepia);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.demo7-sub-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--demo7-sepia);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  margin-bottom: 4px;
+}
+
+/* ───────── ROWS ───────── */
+
+.demo7-row {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+.demo7-row-1 { max-width: 480px; justify-content: center; }
+.demo7-row-2 { max-width: 760px; }
+.demo7-row-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  max-width: 880px;
+}
+
+.demo7-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+}
+
+.demo7-bridge {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 28px;
+}
+
+/* Cream → sepia (entering an autonomous band) */
+.demo7-bridge-cs {
+  background: linear-gradient(
+    to bottom,
+    var(--bg) 0%,
+    var(--bg) 50%,
+    var(--demo7-sepia-softer) 50%,
+    var(--demo7-sepia-softer) 100%
+  );
+}
+
+/* Sepia → cream (exiting an autonomous band) */
+.demo7-bridge-sc {
+  background: linear-gradient(
+    to bottom,
+    var(--demo7-sepia-softer) 0%,
+    var(--demo7-sepia-softer) 50%,
+    var(--bg) 50%,
+    var(--bg) 100%
+  );
+}
+
+/* ───────── BOXES ───────── */
+
+.demo7-box {
+  position: relative;
+  background: var(--bg-elev);
+  border: 1px solid var(--ink);
+  padding: 14px 16px 16px;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 2px 2px 0 0 color-mix(in srgb, var(--ink) 8%, transparent);
+  transition: background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+.demo7-box-wide { width: 360px; }
+
+.demo7-box:hover {
+  background: var(--bg-elev-2);
+  transform: translateY(-1px);
+  box-shadow: 3px 3px 0 0 color-mix(in srgb, var(--ink) 12%, transparent);
+}
+
+.demo7-box.is-active {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  background: color-mix(in srgb, var(--accent) 5%, var(--bg-elev));
+  animation: demo7-pulse-ring 600ms ease-out;
+}
+
+@keyframes demo7-pulse-ring {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 50%, transparent),
+                     2px 2px 0 0 color-mix(in srgb, var(--ink) 8%, transparent); }
+  100% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--accent) 0%, transparent),
+                     2px 2px 0 0 color-mix(in srgb, var(--ink) 8%, transparent); }
+}
+
+.demo7-box-title {
+  font-family: 'Inter Tight', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin-top: 4px;
+}
+.demo7-box-desc {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink-dim);
+  text-wrap: pretty;
+}
+
+/* ───────── BADGES ───────── */
+
+.demo7-badge {
+  position: absolute;
+  top: -11px; left: -11px;
+  width: 22px; height: 22px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: #FFFFFF;
+  border: 1px solid var(--ink);
+  z-index: 2;
+}
+.demo7-badge-auto { background: var(--demo7-sepia); }
+.demo7-badge-human { background: var(--ink-faint); }
+
+/* ───────── SELLER MINI CARDS ───────── */
+
+.demo7-seller {
+  background: var(--bg-elev);
+  border: 1px solid var(--ink);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 2px 2px 0 0 color-mix(in srgb, var(--ink) 8%, transparent);
+  transition: background 160ms ease, transform 160ms ease;
+}
+.demo7-seller:hover {
+  background: var(--bg-elev-2);
+  transform: translateY(-1px);
+}
+.demo7-seller.is-active {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  background: color-mix(in srgb, var(--accent) 5%, var(--bg-elev));
+  animation: demo7-pulse-ring 600ms ease-out;
+}
+.demo7-seller-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+.demo7-seller-meta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--ink-dim);
+}
+.demo7-seller-fail .demo7-seller-name { color: var(--ink-faint); }
+.demo7-seller-fail .demo7-seller-meta { color: var(--ink-faint); }
+
+/* ───────── ARROWS ───────── */
+
+.demo7-arrow-h {
+  position: relative;
+  flex: 0 0 80px;
+  height: 12px;
+  align-self: center;
+  color: var(--ink);
+  display: flex; align-items: center; justify-content: center;
+}
+.demo7-arrow-h svg { width: 100%; height: 100%; display: block; }
+
+.demo7-arrow-v {
+  position: relative;
+  width: 12px;
+  height: 36px;
+  color: var(--ink);
+  display: flex; align-items: center; justify-content: center;
+  margin: 4px 0;
+}
+.demo7-arrow-v.is-long { height: 28px; }
+.demo7-arrow-v svg { width: 100%; height: 100%; display: block; }
+
+/* the travelling dot */
+.demo7-arrow-dot {
+  position: absolute;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 80%, transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.demo7-arrow-h .demo7-arrow-dot {
+  top: 50%; left: 0;
+  transform: translate(-3px, -50%);
+}
+.demo7-arrow-h.is-active .demo7-arrow-dot {
+  animation: demo7-travel-h 900ms ease-out forwards;
+  opacity: 1;
+}
+@keyframes demo7-travel-h {
+  0%   { left: 0%;  opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+
+.demo7-arrow-v .demo7-arrow-dot {
+  left: 50%; top: 0;
+  transform: translate(-50%, -3px);
+}
+.demo7-arrow-v.is-active .demo7-arrow-dot {
+  animation: demo7-travel-v 900ms ease-out forwards;
+  opacity: 1;
+}
+@keyframes demo7-travel-v {
+  0%   { top: 0%;  opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+
+/* ───────── CONVERGENCE ───────── */
+
+.demo7-converge {
+  width: 100%;
+  max-width: 880px;
+  height: 64px;
+  color: var(--ink);
+  margin: 4px 0 6px;
+  position: relative;
+}
+.demo7-converge svg { width: 100%; height: 100%; display: block; }
+.demo7-converge.is-active::after {
+  content: "";
+  position: absolute;
+  left: 50%; bottom: 4px;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 80%, transparent);
+  transform: translateX(-50%);
+  animation: demo7-pulse-dot 700ms ease-out;
+}
+@keyframes demo7-pulse-dot {
+  0%   { opacity: 0; transform: translateX(-50%) scale(0.6); }
+  40%  { opacity: 1; transform: translateX(-50%) scale(1.2); }
+  100% { opacity: 0; transform: translateX(-50%) scale(1); }
+}
+
+/* ───────── REDUCED MOTION ───────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .demo7-box.is-active,
+  .demo7-seller.is-active { animation: none; }
+  .demo7-arrow-h.is-active .demo7-arrow-dot,
+  .demo7-arrow-v.is-active .demo7-arrow-dot,
+  .demo7-converge.is-active::after,
+  .demo7-meta-dot { animation: none; }
+  .demo7-arrow-h .demo7-arrow-dot,
+  .demo7-arrow-v .demo7-arrow-dot { display: none; }
+}
+
+/* ───────── RESPONSIVE ───────── */
+
+@media (max-width: 1080px) {
+  .demo7-box { width: 240px; }
+  .demo7-box-wide { width: 320px; }
+  .demo7-row-4 { max-width: 720px; }
+}
+
+@media (max-width: 760px) {
+  .demo7-band { padding: 36px 20px 32px; }
+  .demo7-row-2 {
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    max-width: 320px;
+  }
+  .demo7-row-4 {
+    grid-template-columns: repeat(2, 1fr);
+    max-width: 100%;
+  }
+  .demo7-arrow-h {
+    flex: 0 0 36px;
+    width: 12px;
+    height: 36px;
+    transform: rotate(90deg);
+  }
+  .demo7-box, .demo7-box-wide { width: 100%; max-width: 320px; }
+  .demo7-stats { grid-template-columns: 1fr; gap: 16px; }
+  .demo7-converge { height: 40px; }
+}

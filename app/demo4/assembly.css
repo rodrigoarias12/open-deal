@@ -1,0 +1,828 @@
+/* ============================================================
+   demo4 · ASSEMBLY LINE
+   Industrial conveyor belt + rectangular package boxes (purchase
+   orders) that get rubber-stamped six times, while six ROUND
+   stations above ping/scan as each box passes underneath.
+   All selectors prefixed `.demo4-*`. Uses tokens from globals.css.
+   ============================================================ */
+
+/* ----- shared layout source of truth -----
+   These vars define WHERE the 6 stations sit horizontally on the
+   floor. The round station nodes, the per-station ping keyframes
+   AND the per-stamp keyframes all read from here, so vertical
+   alignment is guaranteed.
+   We reserve the right ~12% for the vault. Stations live in 8% → 80%. */
+.demo4-floor {
+  --demo4-s0: 10%;
+  --demo4-s1: 22%;
+  --demo4-s2: 35%;
+  --demo4-s3: 48%;
+  --demo4-s4: 61%;
+  --demo4-s5: 74%;
+  --demo4-vault: 90%;
+}
+
+/* ----- hero shell (unchanged) ----- */
+.demo4-hero {
+  padding: 64px 0 96px;
+  border-bottom: 1px solid var(--line);
+  position: relative;
+  overflow: hidden;
+}
+.demo4-hero::before {
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 12% 18%, rgba(139, 90, 43, 0.04) 0, transparent 40%),
+    radial-gradient(circle at 88% 72%, rgba(139, 90, 43, 0.05) 0, transparent 38%);
+  z-index: 0;
+}
+.demo4-hero > .container { position: relative; z-index: 1; }
+
+.demo4-meta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 24px;
+}
+.demo4-meta-dot {
+  width: 6px; height: 6px;
+  background: #A03A1F;
+  border-radius: 50%;
+  box-shadow: 0 0 6px #A03A1F;
+}
+
+.demo4-title {
+  font-family: 'Inter Tight', 'Inter', sans-serif;
+  font-size: clamp(56px, 8vw, 96px);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 0.95;
+  margin: 0 0 24px 0;
+  text-wrap: balance;
+}
+.demo4-em {
+  font-style: italic;
+  font-family: 'Inter Tight', Georgia, serif;
+  font-weight: 400;
+  color: #8B5A2B;
+}
+
+.demo4-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  color: var(--ink-dim);
+  letter-spacing: 0.01em;
+  margin: 0 0 56px 0;
+  text-transform: lowercase;
+}
+
+/* ----- THE FACTORY FLOOR ----- */
+.demo4-floor {
+  position: relative;
+  width: 100%;
+  height: 320px;
+  margin: 0 0 56px 0;
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, #8B5A2B 4%, transparent) 0%,
+      color-mix(in srgb, #8B5A2B 2%, transparent) 100%);
+  border: 1px solid var(--line-2);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* ----- STATIONS (round nodes on a thin beam) ----- */
+.demo4-stations {
+  position: absolute;
+  top: 26px; left: 0; right: 0;
+  height: 130px;
+  pointer-events: none;
+}
+/* Thin horizontal beam connecting all six round stations. */
+.demo4-beam {
+  position: absolute;
+  /* Sits at the vertical center of the round nodes (node radius ~34). */
+  top: 34px;
+  left: var(--demo4-s0);
+  right: calc(100% - var(--demo4-s5));
+  height: 1px;
+  background: var(--ink);
+  opacity: 0.85;
+}
+
+.demo4-station {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center;
+  width: 96px;
+}
+/* SHARED POSITION VARS — same vars used by stamp/ping keyframes below. */
+.demo4-station-0 { left: var(--demo4-s0); }
+.demo4-station-1 { left: var(--demo4-s1); }
+.demo4-station-2 { left: var(--demo4-s2); }
+.demo4-station-3 { left: var(--demo4-s3); }
+.demo4-station-4 { left: var(--demo4-s4); }
+.demo4-station-5 { left: var(--demo4-s5); }
+
+.demo4-station-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--ink-faint);
+  letter-spacing: 0.18em;
+  margin-bottom: 4px;
+  height: 10px;
+  line-height: 10px;
+}
+
+/* The round station node — circle, icon, ping. */
+.demo4-station-node {
+  position: relative;
+  width: 68px;
+  height: 68px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.demo4-station-circle {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #FFFEF8;
+  border: 2px solid var(--ink);
+  box-shadow: 1.5px 1.5px 0 0 rgba(10, 10, 10, 0.14);
+  display: flex; align-items: center; justify-content: center;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+  will-change: border-color, background-color;
+}
+
+.demo4-station-icon {
+  width: 28px;
+  height: 28px;
+  color: var(--ink);
+  display: flex; align-items: center; justify-content: center;
+  animation-timing-function: cubic-bezier(0.2, 1.4, 0.4, 1);
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+  will-change: transform;
+}
+.demo4-station-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Expanding green ring that pings outward when the box passes. */
+.demo4-station-ping {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  opacity: 0;
+  pointer-events: none;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+  will-change: transform, opacity;
+}
+
+/* Station NAME label below the node (mono uppercase, 1-2 lines). */
+.demo4-station-name {
+  margin-top: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--ink);
+  letter-spacing: 0.06em;
+  font-weight: 500;
+  text-align: center;
+  line-height: 1.15;
+  text-transform: uppercase;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+  will-change: color, font-weight;
+}
+
+/* ============================================================
+   STATION PING ANIMATIONS — one keyframe set per station, fired
+   at the % of TRAVEL_SECONDS when the box's center crosses the
+   station's center. Same fire times as the stamp keyframes below.
+   Stations at 10/22/35/48/61/74% → fire at 13/26/39/52/65/78%.
+   ============================================================ */
+
+/* --- ping ring --- */
+@keyframes demo4-ping-0 {
+  0%, 11%   { opacity: 0; transform: scale(1); }
+  13%       { opacity: 0.8; transform: scale(1); }
+  18%       { opacity: 0; transform: scale(1.7); }
+  100%      { opacity: 0; transform: scale(1.7); }
+}
+@keyframes demo4-ping-1 {
+  0%, 24%   { opacity: 0; transform: scale(1); }
+  26%       { opacity: 0.8; transform: scale(1); }
+  31%       { opacity: 0; transform: scale(1.7); }
+  100%      { opacity: 0; transform: scale(1.7); }
+}
+@keyframes demo4-ping-2 {
+  0%, 37%   { opacity: 0; transform: scale(1); }
+  39%       { opacity: 0.8; transform: scale(1); }
+  44%       { opacity: 0; transform: scale(1.7); }
+  100%      { opacity: 0; transform: scale(1.7); }
+}
+@keyframes demo4-ping-3 {
+  0%, 50%   { opacity: 0; transform: scale(1); }
+  52%       { opacity: 0.8; transform: scale(1); }
+  57%       { opacity: 0; transform: scale(1.7); }
+  100%      { opacity: 0; transform: scale(1.7); }
+}
+@keyframes demo4-ping-4 {
+  0%, 63%   { opacity: 0; transform: scale(1); }
+  65%       { opacity: 0.8; transform: scale(1); }
+  70%       { opacity: 0; transform: scale(1.7); }
+  100%      { opacity: 0; transform: scale(1.7); }
+}
+@keyframes demo4-ping-5 {
+  0%, 76%   { opacity: 0; transform: scale(1); }
+  78%       { opacity: 0.8; transform: scale(1); }
+  83%       { opacity: 0; transform: scale(1.7); }
+  100%      { opacity: 0; transform: scale(1.7); }
+}
+
+.demo4-station-ping-0 { animation-name: demo4-ping-0; }
+.demo4-station-ping-1 { animation-name: demo4-ping-1; }
+.demo4-station-ping-2 { animation-name: demo4-ping-2; }
+.demo4-station-ping-3 { animation-name: demo4-ping-3; }
+.demo4-station-ping-4 { animation-name: demo4-ping-4; }
+.demo4-station-ping-5 { animation-name: demo4-ping-5; }
+
+/* --- circle stroke + sepia tint pulse (200ms) --- */
+@keyframes demo4-circle-0 {
+  0%, 12%   { border-width: 2px; background: #FFFEF8; }
+  13%       { border-width: 3px; background: color-mix(in srgb, #8B5A2B 14%, #FFFEF8); }
+  16%       { border-width: 3px; background: color-mix(in srgb, #8B5A2B 14%, #FFFEF8); }
+  19%       { border-width: 2px; background: #FFFEF8; }
+  100%      { border-width: 2px; background: #FFFEF8; }
+}
+@keyframes demo4-circle-1 {
+  0%, 25%   { border-width: 2px; background: #FFFEF8; }
+  26%       { border-width: 3px; background: color-mix(in srgb, #8B5A2B 14%, #FFFEF8); }
+  29%       { border-width: 3px; background: color-mix(in srgb, #8B5A2B 14%, #FFFEF8); }
+  32%       { border-width: 2px; background: #FFFEF8; }
+  100%      { border-width: 2px; background: #FFFEF8; }
+}
+@keyframes demo4-circle-2 {
+  0%, 38%   { border-width: 2px; background: #FFFEF8; }
+  39%       { border-width: 3px; background: color-mix(in srgb, #8B5A2B 14%, #FFFEF8); }
+  42%       { border-width: 3px; background: color-mix(in srgb, #8B5A2B 14%, #FFFEF8); }
+  45%       { border-width: 2px; background: #FFFEF8; }
+  100%      { border-width: 2px; background: #FFFEF8; }
+}
+@keyframes demo4-circle-3 {
+  0%, 51%   { border-width: 2px; background: #FFFEF8; }
+  52%       { border-width: 3px; background: color-mix(in srgb, #8B5A2B 14%, #FFFEF8); }
+  55%       { border-width: 3px; background: color-mix(in srgb, #8B5A2B 14%, #FFFEF8); }
+  58%       { border-width: 2px; background: #FFFEF8; }
+  100%      { border-width: 2px; background: #FFFEF8; }
+}
+@keyframes demo4-circle-4 {
+  0%, 64%   { border-width: 2px; background: #FFFEF8; }
+  65%       { border-width: 3px; background: color-mix(in srgb, #8B5A2B 14%, #FFFEF8); }
+  68%       { border-width: 3px; background: color-mix(in srgb, #8B5A2B 14%, #FFFEF8); }
+  71%       { border-width: 2px; background: #FFFEF8; }
+  100%      { border-width: 2px; background: #FFFEF8; }
+}
+@keyframes demo4-circle-5 {
+  0%, 77%   { border-width: 2px; background: #FFFEF8; }
+  78%       { border-width: 3px; background: color-mix(in srgb, #8B5A2B 14%, #FFFEF8); }
+  81%       { border-width: 3px; background: color-mix(in srgb, #8B5A2B 14%, #FFFEF8); }
+  84%       { border-width: 2px; background: #FFFEF8; }
+  100%      { border-width: 2px; background: #FFFEF8; }
+}
+
+.demo4-station-circle-0 { animation-name: demo4-circle-0; }
+.demo4-station-circle-1 { animation-name: demo4-circle-1; }
+.demo4-station-circle-2 { animation-name: demo4-circle-2; }
+.demo4-station-circle-3 { animation-name: demo4-circle-3; }
+.demo4-station-circle-4 { animation-name: demo4-circle-4; }
+.demo4-station-circle-5 { animation-name: demo4-circle-5; }
+
+/* --- icon scale 1 → 1.15 → 1 over 250ms --- */
+@keyframes demo4-icon-0 {
+  0%, 12%   { transform: scale(1); }
+  14%       { transform: scale(1.15); }
+  17%       { transform: scale(1); }
+  100%      { transform: scale(1); }
+}
+@keyframes demo4-icon-1 {
+  0%, 25%   { transform: scale(1); }
+  27%       { transform: scale(1.15); }
+  30%       { transform: scale(1); }
+  100%      { transform: scale(1); }
+}
+@keyframes demo4-icon-2 {
+  0%, 38%   { transform: scale(1); }
+  40%       { transform: scale(1.15); }
+  43%       { transform: scale(1); }
+  100%      { transform: scale(1); }
+}
+@keyframes demo4-icon-3 {
+  0%, 51%   { transform: scale(1); }
+  53%       { transform: scale(1.15); }
+  56%       { transform: scale(1); }
+  100%      { transform: scale(1); }
+}
+@keyframes demo4-icon-4 {
+  0%, 64%   { transform: scale(1); }
+  66%       { transform: scale(1.15); }
+  69%       { transform: scale(1); }
+  100%      { transform: scale(1); }
+}
+@keyframes demo4-icon-5 {
+  0%, 77%   { transform: scale(1); }
+  79%       { transform: scale(1.15); }
+  82%       { transform: scale(1); }
+  100%      { transform: scale(1); }
+}
+
+.demo4-station-icon-0 { animation-name: demo4-icon-0; }
+.demo4-station-icon-1 { animation-name: demo4-icon-1; }
+.demo4-station-icon-2 { animation-name: demo4-icon-2; }
+.demo4-station-icon-3 { animation-name: demo4-icon-3; }
+.demo4-station-icon-4 { animation-name: demo4-icon-4; }
+.demo4-station-icon-5 { animation-name: demo4-icon-5; }
+
+/* --- name label briefly bolds + turns sepia --- */
+@keyframes demo4-name-0 {
+  0%, 12%   { color: var(--ink); font-weight: 500; }
+  14%       { color: #8B5A2B; font-weight: 700; }
+  20%       { color: #8B5A2B; font-weight: 700; }
+  24%       { color: var(--ink); font-weight: 500; }
+  100%      { color: var(--ink); font-weight: 500; }
+}
+@keyframes demo4-name-1 {
+  0%, 25%   { color: var(--ink); font-weight: 500; }
+  27%       { color: #8B5A2B; font-weight: 700; }
+  33%       { color: #8B5A2B; font-weight: 700; }
+  37%       { color: var(--ink); font-weight: 500; }
+  100%      { color: var(--ink); font-weight: 500; }
+}
+@keyframes demo4-name-2 {
+  0%, 38%   { color: var(--ink); font-weight: 500; }
+  40%       { color: #8B5A2B; font-weight: 700; }
+  46%       { color: #8B5A2B; font-weight: 700; }
+  50%       { color: var(--ink); font-weight: 500; }
+  100%      { color: var(--ink); font-weight: 500; }
+}
+@keyframes demo4-name-3 {
+  0%, 51%   { color: var(--ink); font-weight: 500; }
+  53%       { color: #8B5A2B; font-weight: 700; }
+  59%       { color: #8B5A2B; font-weight: 700; }
+  63%       { color: var(--ink); font-weight: 500; }
+  100%      { color: var(--ink); font-weight: 500; }
+}
+@keyframes demo4-name-4 {
+  0%, 64%   { color: var(--ink); font-weight: 500; }
+  66%       { color: #8B5A2B; font-weight: 700; }
+  72%       { color: #8B5A2B; font-weight: 700; }
+  76%       { color: var(--ink); font-weight: 500; }
+  100%      { color: var(--ink); font-weight: 500; }
+}
+@keyframes demo4-name-5 {
+  0%, 77%   { color: var(--ink); font-weight: 500; }
+  79%       { color: #8B5A2B; font-weight: 700; }
+  85%       { color: #8B5A2B; font-weight: 700; }
+  89%       { color: var(--ink); font-weight: 500; }
+  100%      { color: var(--ink); font-weight: 500; }
+}
+
+.demo4-station-name-0 { animation-name: demo4-name-0; }
+.demo4-station-name-1 { animation-name: demo4-name-1; }
+.demo4-station-name-2 { animation-name: demo4-name-2; }
+.demo4-station-name-3 { animation-name: demo4-name-3; }
+.demo4-station-name-4 { animation-name: demo4-name-4; }
+.demo4-station-name-5 { animation-name: demo4-name-5; }
+
+.demo4-station-name {
+  /* Iteration applied per-instance via the per-station class above.
+     Default duration matches TRAVEL_SECONDS via inline style. */
+  animation-duration: 16s;
+  animation-iteration-count: infinite;
+}
+
+/* ----- CONVEYOR BELT ----- */
+.demo4-belt {
+  position: absolute;
+  left: 0; right: 0;
+  top: 215px;
+  height: 60px;
+}
+.demo4-belt-line {
+  position: absolute;
+  left: 0; right: 0;
+  height: 2px;
+  background: var(--ink);
+}
+.demo4-belt-top { top: 0; }
+.demo4-belt-bottom { bottom: 0; }
+.demo4-belt-surface {
+  position: absolute;
+  inset: 2px 0;
+  /* Hatching slopes /// (45deg) so combined with the rightward tick
+     scroll the surface visually "flows" toward the vault on the right. */
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent 0,
+    transparent 6px,
+    color-mix(in srgb, var(--ink) 8%, transparent) 6px,
+    color-mix(in srgb, var(--ink) 8%, transparent) 7px
+  );
+  background-color: color-mix(in srgb, #8B5A2B 7%, var(--bg-elev));
+}
+.demo4-belt-ticks {
+  position: absolute;
+  inset: 2px 0;
+  background-image:
+    linear-gradient(90deg,
+      transparent 0,
+      transparent 38px,
+      color-mix(in srgb, var(--ink) 22%, transparent) 38px,
+      color-mix(in srgb, var(--ink) 22%, transparent) 40px,
+      transparent 40px,
+      transparent 80px);
+  background-size: 80px 100%;
+  animation: demo4-tick-scroll 1.6s linear infinite;
+  opacity: 0.55;
+}
+/* Tick marks scroll LEFT → RIGHT to reinforce that packages travel
+   from the ODOO station on the left to the vault on the right.
+   Background-position increasing in X shifts the pattern rightward. */
+@keyframes demo4-tick-scroll {
+  from { background-position: 0 0; }
+  to   { background-position: 80px 0; }
+}
+
+/* ----- DESTINATION VAULT ----- */
+.demo4-vault {
+  position: absolute;
+  left: var(--demo4-vault);
+  top: 184px;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center;
+  color: var(--ink);
+  pointer-events: none;
+  z-index: 3;
+}
+.demo4-vault-glyph {
+  width: 60px; height: 60px;
+}
+.demo4-vault-label {
+  margin-top: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+  white-space: nowrap;
+  text-align: center;
+}
+
+/* ----- PACKAGES (rectangular boxes / manifests) -----
+   The wrapper spans the full floor width. The box inside is
+   absolutely positioned with `left: <pct>` animated keyframes —
+   the % is relative to the floor, NOT the box's width — that's
+   what makes the stamp times line up with the overhead stations. */
+.demo4-pkgs {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.demo4-pkg {
+  position: absolute;
+  left: 0; right: 0;
+  /* Center of box sits on the center of the belt: top:215 + height/2:30 = 245.
+     Box is 80px tall, so top = 245 - 40 = 205. */
+  top: 205px;
+  height: 80px;
+}
+
+.demo4-box {
+  position: absolute;
+  top: 0;
+  /* Centered on its `left` position. */
+  margin-left: -80px;
+  width: 160px;
+  height: 80px;
+  background: #FFFEF6;
+  border: 1.5px solid var(--ink);
+  /* Cardstock shadow + a faint inner stroke for depth. */
+  box-shadow:
+    2px 2px 0 0 rgba(10, 10, 10, 0.16),
+    inset 0 0 0 1px rgba(255, 254, 246, 0.6);
+  animation-name: demo4-slide;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: left;
+  overflow: hidden;
+}
+/* A subtle corner-fold to suggest a paper manifest. */
+.demo4-box::before {
+  content: "";
+  position: absolute;
+  top: 0; right: 0;
+  width: 12px; height: 12px;
+  background:
+    linear-gradient(225deg,
+      color-mix(in srgb, var(--ink) 12%, transparent) 0 50%,
+      transparent 50% 100%);
+}
+
+/* The box slides from off-screen-left, through each station %,
+   snaps into the vault at 90%, holds, then exits.
+   Positions reference the SAME --demo4-s* vars that the round
+   stations use — guaranteed alignment. */
+@keyframes demo4-slide {
+  0%    { left: -8%; }
+  13%   { left: var(--demo4-s0); }
+  26%   { left: var(--demo4-s1); }
+  39%   { left: var(--demo4-s2); }
+  52%   { left: var(--demo4-s3); }
+  65%   { left: var(--demo4-s4); }
+  78%   { left: var(--demo4-s5); }
+  90%   { left: var(--demo4-vault); }
+  95%   { left: var(--demo4-vault); }
+  100%  { left: 110%; }
+}
+
+.demo4-box-text {
+  position: absolute;
+  inset: 8px 10px;
+  font-family: 'JetBrains Mono', monospace;
+  line-height: 1.15;
+  pointer-events: none;
+}
+.demo4-box-l1 {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.demo4-box-l2 {
+  font-size: 9px;
+  color: var(--ink-dim);
+  letter-spacing: 0.02em;
+  margin-top: 3px;
+  white-space: nowrap;
+}
+.demo4-box-l3 {
+  font-size: 8px;
+  color: var(--ink-faint);
+  letter-spacing: 0.02em;
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ----- RUBBER STAMPS -----
+   Each stamp is a rust-red stamped label with a thin border, fixed
+   rotation per index, popped onto the box surface as the box passes
+   under its corresponding station. Slight overlap is intentional —
+   the box should look like a busy inspection-stamped document.
+
+   Slide timing matches station ping fire times (13/26/39/52/65/78%). */
+.demo4-stamp {
+  position: absolute;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #A03A1F;
+  border: 1.2px solid #A03A1F;
+  padding: 2px 5px;
+  background: transparent;
+  text-transform: uppercase;
+  line-height: 1;
+  white-space: nowrap;
+  /* Slight drop-shadow inside the stroke, classic stamp aesthetic. */
+  box-shadow: inset 0 0 0 0.5px rgba(160, 58, 31, 0.35);
+  /* Initial state: hidden, big, rotated. Keyframes will animate scale
+     while preserving rotation via the --demo4-stamp-rot variable. */
+  opacity: 0;
+  transform: rotate(var(--demo4-stamp-rot, 0deg)) scale(2.4);
+  transform-origin: center center;
+  animation-timing-function: cubic-bezier(0.2, 1.4, 0.4, 1);
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
+/* Per-stamp fire keyframes — opacity 0 → pop in, then hold. Rotation
+   is preserved by reading --demo4-stamp-rot inside each frame. */
+.demo4-stamp-0 { animation-name: demo4-stamp-fire-0; }
+.demo4-stamp-1 { animation-name: demo4-stamp-fire-1; }
+.demo4-stamp-2 { animation-name: demo4-stamp-fire-2; }
+.demo4-stamp-3 { animation-name: demo4-stamp-fire-3; }
+.demo4-stamp-4 { animation-name: demo4-stamp-fire-4; }
+.demo4-stamp-5 { animation-name: demo4-stamp-fire-5; }
+
+@keyframes demo4-stamp-fire-0 {
+  0%, 12%   { opacity: 0; transform: rotate(var(--demo4-stamp-rot)) scale(2.4); }
+  14%       { opacity: 1; transform: rotate(var(--demo4-stamp-rot)) scale(0.85); }
+  17%       { opacity: 0.95; transform: rotate(var(--demo4-stamp-rot)) scale(1); }
+  93%       { opacity: 0.95; transform: rotate(var(--demo4-stamp-rot)) scale(1); }
+  98%       { opacity: 0.95; transform: rotate(var(--demo4-stamp-rot)) scale(1); }
+  100%      { opacity: 0; transform: rotate(var(--demo4-stamp-rot)) scale(1); }
+}
+@keyframes demo4-stamp-fire-1 {
+  0%, 25%   { opacity: 0; transform: rotate(var(--demo4-stamp-rot)) scale(2.4); }
+  27%       { opacity: 1; transform: rotate(var(--demo4-stamp-rot)) scale(0.85); }
+  30%       { opacity: 0.95; transform: rotate(var(--demo4-stamp-rot)) scale(1); }
+  93%       { opacity: 0.95; transform: rotate(var(--demo4-stamp-rot)) scale(1); }
+  98%       { opacity: 0.95; transform: rotate(var(--demo4-stamp-rot)) scale(1); }
+  100%      { opacity: 0; transform: rotate(var(--demo4-stamp-rot)) scale(1); }
+}
+@keyframes demo4-stamp-fire-2 {
+  0%, 38%   { opacity: 0; transform: rotate(var(--demo4-stamp-rot)) scale(2.4); }
+  40%       { opacity: 1; transform: rotate(var(--demo4-stamp-rot)) scale(0.85); }
+  43%       { opacity: 0.95; transform: rotate(var(--demo4-stamp-rot)) scale(1); }
+  93%       { opacity: 0.95; transform: rotate(var(--demo4-stamp-rot)) scale(1); }
+  98%       { opacity: 0.95; transform: rotate(var(--demo4-stamp-rot)) scale(1); }
+  100%      { opacity: 0; transform: rotate(var(--demo4-stamp-rot)) scale(1); }
+}
+@keyframes demo4-stamp-fire-3 {
+  0%, 51%   { opacity: 0; transform: rotate(var(--demo4-stamp-rot)) scale(2.4); }
+  53%       { opacity: 1; transform: rotate(var(--demo4-stamp-rot)) scale(0.85); }
+  56%       { opacity: 0.95; transform: rotate(var(--demo4-stamp-rot)) scale(1); }
+  93%       { opacity: 0.95; transform: rotate(var(--demo4-stamp-rot)) scale(1); }
+  98%       { opacity: 0.95; transform: rotate(var(--demo4-stamp-rot)) scale(1); }
+  100%      { opacity: 0; transform: rotate(var(--demo4-stamp-rot)) scale(1); }
+}
+@keyframes demo4-stamp-fire-4 {
+  0%, 64%   { opacity: 0; transform: rotate(var(--demo4-stamp-rot)) scale(2.4); }
+  66%       { opacity: 1; transform: rotate(var(--demo4-stamp-rot)) scale(0.85); }
+  69%       { opacity: 0.95; transform: rotate(var(--demo4-stamp-rot)) scale(1); }
+  93%       { opacity: 0.95; transform: rotate(var(--demo4-stamp-rot)) scale(1); }
+  98%       { opacity: 0.95; transform: rotate(var(--demo4-stamp-rot)) scale(1); }
+  100%      { opacity: 0; transform: rotate(var(--demo4-stamp-rot)) scale(1); }
+}
+@keyframes demo4-stamp-fire-5 {
+  0%, 77%   { opacity: 0; transform: rotate(var(--demo4-stamp-rot)) scale(2.4); }
+  79%       { opacity: 1; transform: rotate(var(--demo4-stamp-rot)) scale(0.85); }
+  82%       { opacity: 0.95; transform: rotate(var(--demo4-stamp-rot)) scale(1); }
+  93%       { opacity: 0.95; transform: rotate(var(--demo4-stamp-rot)) scale(1); }
+  98%       { opacity: 0.95; transform: rotate(var(--demo4-stamp-rot)) scale(1); }
+  100%      { opacity: 0; transform: rotate(var(--demo4-stamp-rot)) scale(1); }
+}
+
+/* Final landing flash — a green outline pulse around the box the moment
+   it snaps into the vault. Timed at the slide's 93% mark. */
+.demo4-box-flash {
+  position: absolute;
+  inset: -4px;
+  border: 2px solid var(--accent);
+  opacity: 0;
+  pointer-events: none;
+  animation-name: demo4-box-flash;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+}
+@keyframes demo4-box-flash {
+  0%, 91%  { opacity: 0; transform: scale(0.98); }
+  93%      { opacity: 0.95; transform: scale(1); }
+  96%      { opacity: 0.4; transform: scale(1.06); }
+  98%      { opacity: 0; transform: scale(1.1); }
+  100%     { opacity: 0; transform: scale(1.1); }
+}
+
+/* ----- floor caption ----- */
+.demo4-floor-caption {
+  position: absolute;
+  bottom: 8px; left: 0; right: 0;
+  display: flex; align-items: center; justify-content: center;
+  gap: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.demo4-floor-caption-mark {
+  width: 28px; height: 1px; background: var(--line-2);
+}
+
+/* ----- stats row + cta + back link (unchanged) ----- */
+.demo4-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+  padding: 28px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  font-family: 'JetBrains Mono', monospace;
+  margin-bottom: 32px;
+}
+.demo4-stat-label {
+  font-size: 11px;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+}
+.demo4-stat-value {
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.demo4-cta-row {
+  display: flex; gap: 12px; flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.demo4-back {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 32px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+.demo4-back a:hover { color: var(--ink); }
+
+/* ----- responsive ----- */
+@media (max-width: 1080px) {
+  .demo4-floor { height: 300px; }
+  .demo4-station-node { width: 60px; height: 60px; }
+  .demo4-station-icon { width: 24px; height: 24px; }
+  .demo4-station-name { font-size: 11px; }
+  .demo4-box { width: 144px; height: 76px; margin-left: -72px; }
+}
+@media (max-width: 720px) {
+  .demo4-floor {
+    height: 280px;
+    /* tighter station spacing on small screens */
+    --demo4-s0: 9%;
+    --demo4-s1: 20%;
+    --demo4-s2: 33%;
+    --demo4-s3: 46%;
+    --demo4-s4: 59%;
+    --demo4-s5: 71%;
+    --demo4-vault: 88%;
+  }
+  .demo4-station { width: 64px; }
+  .demo4-station-node { width: 48px; height: 48px; }
+  .demo4-station-icon { width: 20px; height: 20px; }
+  .demo4-station-num { font-size: 7px; }
+  .demo4-station-name { font-size: 9px; letter-spacing: 0.04em; }
+  .demo4-box { width: 128px; height: 70px; margin-left: -64px; }
+  .demo4-box-l1 { font-size: 9px; }
+  .demo4-box-l2 { font-size: 8px; }
+  .demo4-box-l3 { font-size: 7px; }
+  .demo4-stamp { font-size: 7px; padding: 1px 3px; }
+  .demo4-vault-glyph { width: 48px; height: 48px; }
+  .demo4-vault-label { font-size: 8px; }
+  .demo4-stats { grid-template-columns: 1fr; gap: 16px; }
+}
+
+/* ----- reduced motion ----- */
+@media (prefers-reduced-motion: reduce) {
+  .demo4-box,
+  .demo4-belt-ticks,
+  .demo4-stamp,
+  .demo4-box-flash,
+  .demo4-station-ping,
+  .demo4-station-circle,
+  .demo4-station-icon,
+  .demo4-station-name {
+    animation: none !important;
+  }
+  .demo4-box-flash,
+  .demo4-station-ping {
+    display: none;
+  }
+  /* Park each box at a meaningful station so the still frame still
+     tells the story: lead box at the vault fully stamped, others
+     mid-line with progressively fewer stamps. */
+  .demo4-stamp { opacity: 0.95; transform: rotate(var(--demo4-stamp-rot)) scale(1); }
+  .demo4-pkg:nth-child(1) .demo4-box { left: var(--demo4-vault); }
+  .demo4-pkg:nth-child(2) .demo4-box { left: var(--demo4-s4); }
+  .demo4-pkg:nth-child(3) .demo4-box { left: var(--demo4-s2); }
+  .demo4-pkg:nth-child(4) .demo4-box { left: var(--demo4-s0); }
+  /* For non-lead boxes, hide stamps past their current station. */
+  .demo4-pkg:nth-child(2) .demo4-stamp-5 { opacity: 0; }
+  .demo4-pkg:nth-child(3) .demo4-stamp-3,
+  .demo4-pkg:nth-child(3) .demo4-stamp-4,
+  .demo4-pkg:nth-child(3) .demo4-stamp-5 { opacity: 0; }
+  .demo4-pkg:nth-child(4) .demo4-stamp-1,
+  .demo4-pkg:nth-child(4) .demo4-stamp-2,
+  .demo4-pkg:nth-child(4) .demo4-stamp-3,
+  .demo4-pkg:nth-child(4) .demo4-stamp-4,
+  .demo4-pkg:nth-child(4) .demo4-stamp-5 { opacity: 0; }
+}

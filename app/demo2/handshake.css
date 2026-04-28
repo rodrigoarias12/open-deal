@@ -1,0 +1,415 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   demo2 — "two agents, one handshake" hero
+   Self-contained styles for the split-screen handshake visualization.
+   Reuses CSS custom properties from app/globals.css (--bg, --ink, --line, etc).
+   ───────────────────────────────────────────────────────────────────────── */
+
+.d2-hero {
+  padding: 72px 0 96px;
+  border-bottom: 1px solid var(--line);
+}
+
+.d2-hero-head {
+  text-align: center;
+  max-width: 920px;
+  margin: 0 auto 56px;
+  padding: 0 16px;
+}
+
+.d2-meta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+.d2-meta-dot {
+  width: 6px; height: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--accent);
+  animation: d2-pulse 2s ease-in-out infinite;
+}
+@keyframes d2-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.d2-title {
+  font-family: 'Inter Tight', 'Inter', sans-serif;
+  font-size: clamp(56px, 7.4vw, 96px);
+  font-weight: 500;
+  letter-spacing: -0.045em;
+  line-height: 0.98;
+  margin: 0 0 28px 0;
+  text-wrap: balance;
+  color: var(--ink);
+}
+.d2-title .d2-em {
+  font-style: italic;
+  font-family: 'Inter Tight', Georgia, serif;
+  font-weight: 400;
+  color: #8B5A2B;
+}
+[data-theme="dark"] .d2-title .d2-em {
+  color: #D49A60;
+}
+
+.d2-sub {
+  font-size: 18px;
+  color: var(--ink-dim);
+  max-width: 620px;
+  margin: 0 auto 32px;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.d2-cta-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* ─── split screen ─── */
+.d2-stage {
+  display: grid;
+  grid-template-columns: 1fr 84px 1fr;
+  gap: 0;
+  align-items: stretch;
+  margin-top: 8px;
+}
+
+.d2-side {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.d2-side-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 0 4px 12px;
+  gap: 12px;
+}
+.d2-side-label .d2-side-name {
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+}
+.d2-side-label .d2-side-role {
+  color: var(--ink-faint);
+}
+
+.d2-term {
+  background: var(--bg-elev);
+  border: 1px solid var(--line-2);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  height: 100%;
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+.d2-term-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+.d2-term-head-left { display: flex; align-items: center; gap: 10px; }
+.d2-dots { display: flex; gap: 6px; }
+.d2-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line-2); }
+.d2-term-status {
+  display: flex; align-items: center; gap: 6px;
+  color: var(--accent);
+  text-transform: lowercase;
+}
+.d2-term-status::before {
+  content: ""; width: 5px; height: 5px;
+  background: var(--accent); border-radius: 50%;
+  animation: d2-pulse 1.6s ease-in-out infinite;
+}
+
+.d2-term-body {
+  padding: 16px 18px;
+  flex: 1;
+  overflow-y: auto;
+  line-height: 1.75;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.d2-line {
+  white-space: pre-wrap;
+  word-break: break-word;
+  opacity: 0;
+  transform: translateY(4px);
+  animation: d2-line-in 240ms ease-out forwards;
+}
+@keyframes d2-line-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.d2-line .d2-arr-out { color: var(--accent); }
+.d2-line .d2-arr-in  { color: var(--policy); }
+.d2-line .d2-tx      { color: var(--accent); }
+.d2-line .d2-faint   { color: var(--ink-faint); }
+.d2-line.is-tick     { color: var(--accent); }
+.d2-line.is-tick::before {
+  content: "✓ ";
+  color: var(--accent);
+}
+
+.d2-term-foot {
+  border-top: 1px solid var(--line);
+  padding: 9px 14px;
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 10px;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ─── center conduit (the gap between terminals) ─── */
+.d2-conduit {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: stretch;
+  /* match the height of the terminal column (label + body) */
+  padding-top: 32px; /* aligns with terminal start, after the label row */
+}
+
+.d2-rail {
+  position: relative;
+  flex: 1;
+  width: 1px;
+  background: linear-gradient(
+    to bottom,
+    transparent 0,
+    var(--line-2) 18px,
+    var(--line-2) calc(100% - 18px),
+    transparent 100%
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 420px;
+}
+
+/* horizontal track that the dot rides on, centered vertically */
+.d2-track {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(100% + 84px);
+  height: 1px;
+}
+
+/* the line that pulses while travel is active */
+.d2-track-line {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to right,
+    var(--line-2) 0,
+    var(--line-2) 3px,
+    transparent 3px,
+    transparent 7px
+  );
+  opacity: 0.55;
+}
+
+/* the traveling dot */
+.d2-dot-travel {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  margin-top: -3px;
+  margin-left: -3px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow:
+    0 0 6px var(--accent),
+    0 0 14px color-mix(in srgb, var(--accent) 60%, transparent),
+    0 0 28px color-mix(in srgb, var(--accent) 30%, transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+.d2-dot-travel.is-ltr {
+  animation: d2-travel-ltr 700ms cubic-bezier(0.42, 0, 0.58, 1) forwards;
+}
+.d2-dot-travel.is-rtl {
+  animation: d2-travel-rtl 700ms cubic-bezier(0.42, 0, 0.58, 1) forwards;
+}
+@keyframes d2-travel-ltr {
+  0%   { left: 0%;   opacity: 0; transform: scale(0.6); }
+  10%  { opacity: 1; transform: scale(1); }
+  90%  { opacity: 1; transform: scale(1); }
+  100% { left: 100%; opacity: 0; transform: scale(0.6); }
+}
+@keyframes d2-travel-rtl {
+  0%   { left: 100%; opacity: 0; transform: scale(0.6); }
+  10%  { opacity: 1; transform: scale(1); }
+  90%  { opacity: 1; transform: scale(1); }
+  100% { left: 0%;   opacity: 0; transform: scale(0.6); }
+}
+
+/* the trail nodes the dot leaves behind */
+.d2-trail {
+  position: absolute;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  margin-top: -1.5px;
+  margin-left: -1.5px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0;
+  animation: d2-trail-fade 700ms ease-out forwards;
+}
+@keyframes d2-trail-fade {
+  0%   { opacity: 0.8; }
+  100% { opacity: 0; }
+}
+
+/* center marker — node ticks with a glow on handshake completion */
+.d2-marker {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1px solid var(--line-2);
+  z-index: 2;
+}
+.d2-marker.is-tick {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+  animation: d2-tick-pulse 1100ms ease-out;
+}
+@keyframes d2-tick-pulse {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent); }
+  60%  { box-shadow: 0 0 0 14px color-mix(in srgb, var(--accent) 0%, transparent); }
+  100% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
+}
+
+/* ─── below the dual terminals ─── */
+.d2-below {
+  margin-top: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.d2-loop-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.d2-loop-pill .d2-loop-bullet {
+  width: 6px; height: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+  animation: d2-pulse 1.6s ease-in-out infinite;
+}
+.d2-loop-pill .d2-loop-num { color: var(--ink); }
+
+.d2-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 32px;
+  font-family: 'JetBrains Mono', monospace;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 720px;
+}
+.d2-stat-label {
+  font-size: 11px; color: var(--ink-faint);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+.d2-stat-value {
+  font-size: 13px; color: var(--ink);
+  word-break: break-all;
+}
+
+/* ─── back-to-landing strip ─── */
+.d2-back {
+  padding: 36px 0 48px;
+  text-align: center;
+}
+.d2-back a {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
+  border-bottom: 1px dashed var(--line-2);
+  padding-bottom: 2px;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.d2-back a:hover {
+  color: var(--ink);
+  border-color: var(--ink-faint);
+}
+
+/* ─── responsive ─── */
+@media (max-width: 1080px) {
+  .d2-stage {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  .d2-conduit {
+    padding-top: 0;
+    height: 60px;
+  }
+  .d2-rail {
+    width: 100%;
+    height: 1px;
+    min-height: 0;
+    background: linear-gradient(
+      to right,
+      transparent 0,
+      var(--line-2) 18px,
+      var(--line-2) calc(100% - 18px),
+      transparent 100%
+    );
+  }
+  .d2-track { display: none; } /* hide horizontal travel on stacked layout */
+  .d2-marker { position: static; transform: none; }
+  .d2-stats { grid-template-columns: 1fr 1fr 1fr; gap: 16px; max-width: none; width: 100%; }
+}
+@media (max-width: 640px) {
+  .d2-stats { grid-template-columns: 1fr; }
+  .d2-below { flex-direction: column; align-items: flex-start; }
+}

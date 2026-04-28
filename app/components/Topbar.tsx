@@ -33,13 +33,13 @@ export function Topbar() {
         <a href="#" className="brand">
           <img
             src="/logo.png"
-            alt="Agentic ERP"
-            width={28}
-            height={28}
-            style={{ display: "block", borderRadius: 6 }}
+            alt="Open Deal"
+            width={36}
+            height={36}
+            style={{ display: "block" }}
           />
           <span className="brand-name">
-            agentic<span className="dim"> </span>erp
+            open<span className="dim"> </span>deal
           </span>
         </a>
         <nav className="topbar-nav">
