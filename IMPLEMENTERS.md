@@ -203,6 +203,71 @@ replace the body, register in the factory. ~50–100 LOC.
 
 ---
 
+## Chain-side plugins — the *other* adapter layer
+
+The protocol is the contract between two sides, both pluggable:
+
+```
+TUS LIBROS (Odoo, Excel, Shopify…)            ← STACK CONNECTORS
+       │                                         src/connectors/
+       ▼ BuyerInventoryConnector / SellerCatalogConnector
+┌──────────────────────────────────────┐
+│ OPEN DEAL PROTOCOL v0.1 — never changes │
+└──────────────────────────────────────┘
+       │ wire JSON + onchain calls
+       ▼
+PRIMITIVAS ONCHAIN (ENS, 0G, KeeperHub)        ← OPENCLAW PLUGINS
+                                                 plugins/
+```
+
+The repo ships **3 reference plugins** that cover the chain side of the spec.
+Each is an `npm`-publishable package with `openclaw.plugin.json`, `SKILL.md`
+(AX-readable), README and smoke test. Same adapter pattern as the connectors,
+just on the other side of the protocol.
+
+| Plugin | Spec section it covers | What it does |
+|---|---|---|
+| [`policy-from-ens`](./plugins/policy-from-ens/) | §1 discovery + §5 audit policyHash | Reads policy + identity from ENS text records. Gates every onchain action against the policy and emits the policy hash that ends up in the audit record. |
+| [`audit-to-0g`](./plugins/audit-to-0g/) | §5 verifiable history | Uploads each audit JSON to 0G Storage, anchors the `cidRoot` on 0G Chain via the `AuditAnchor` contract. Returns proof artifacts (storage root + anchor index). |
+| [`keeperhub-rail`](./plugins/keeperhub-rail/) | §4 settlement (alt rail) | Optional x402 payment rail. When a counterparty exposes a paid HTTP endpoint (`HTTP 402 Payment Required`), the buyer auto-pays through KeeperHub's hosted agentic wallet and retries — no human in the loop. |
+
+### Why three, and why npm-publishable
+
+Same reason the connectors are pluggable: a different team can ship
+`audit-to-arweave`, `policy-from-erc8004`, or `keeperhub-on-base` without
+touching the spec or the connectors. As long as the new plugin emits the same
+artifacts the protocol expects, it's a drop-in.
+
+### When to use `keeperhub-rail` vs direct escrow
+
+The two are not redundant — they cover different value transfers:
+
+| Use direct `ProcurementEscrow` (Sepolia / mainnet equivalent) when… | Use `keeperhub-rail` (x402) when… |
+|---|---|
+| The transfer is **the order itself** — large, structured, multi-state (created → locked → released → confirmed). State must be onchain and disputable. | The transfer is a **per-call API fee** — small, atomic, machine-to-machine: paying the seller's RFQ endpoint per quote, paying for premium catalog tier, paying for a verification oracle. |
+| You need full audit + dispute resolution. | You need transparent micropayment between agents — the agent never sees a 402, the rail handles it. |
+| One transaction per order. | One transaction per HTTP call. |
+
+**Today**, the reference flow uses direct escrow for the order value (correct
+for B2B procurement) and KeeperHub is wired as the optional rail for paid
+sub-services. A future seller can charge a tiny USDC fee per RFQ to discourage
+spam fan-outs; the buyer plugin auto-pays without exposing the payment to
+agent logic. That's the x402 promise: paid HTTP becomes ambient.
+
+### How an LLM extends this layer
+
+The same AX-first pattern: drop `PROTOCOL.md` + the spec section you're
+adapting + an existing plugin folder into the LLM's context, and ask:
+
+> "Write me a plugin called `audit-to-arweave` that emits the same shape as
+> `audit-to-0g/src/index.ts` but writes to Arweave. Keep the
+> `openclaw.plugin.json` manifest and SKILL.md format identical."
+
+Out comes a conformant plugin. That's the bet — the protocol is small enough
+and explicit enough that conformance is mechanical.
+
+---
+
 ## Step-by-step: from zero to conformant in ~30 minutes
 
 ### Step 1 — Decide which side(s)
