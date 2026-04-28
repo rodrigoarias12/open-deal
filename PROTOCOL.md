@@ -1,15 +1,24 @@
-# Open Deal Protocol — v0.1 (single-implementation draft)
+# Open Deal Protocol — v0.1
 
 > **Reference spec for autonomous, trust-minimized agent-mediated trade.** This
-> document is the wire-format and onchain-interface contract that any buyer or
-> seller agent — in any language, on any chain with the canonical ENS registry —
-> would need to interoperate with our reference implementation.
+> document is the wire-format and onchain-interface contract any buyer or seller
+> agent — in any language, on any chain with the canonical ENS registry — needs
+> to interoperate with the reference implementations.
 >
-> **Status: v0.1, one implementation.** The hosted endpoints at
-> `agentic-erp-eth.vercel.app` and the `apps/buyer-agent/` + `apps/seller-agent/`
-> reference code are *the* implementation today. The spec is published openly so
-> a second implementation can be built without coordination — that's the test
-> Open Deal needs to pass to graduate from spec to standard.
+> **Status: v0.1, two independent implementations interoperating against the
+> same live Sepolia ENS records.**
+>
+> | Implementation | Lang | Path | Discovers | Trades |
+> |---|---|---|---|---|
+> | Reference buyer | TypeScript | `apps/buyer-agent/` | ✓ ENS + 0G catalog | ✓ |
+> | Reference seller | TypeScript | `apps/seller-agent/` + `app/api/seller/` | n/a | ✓ |
+> | Second buyer | Python | `apps/buyer-py/` | ✓ ENS + HTTPS mirror | ✓ |
+>
+> The Python buyer was written from PROTOCOL.md alone — no shared code with
+> the TS implementation, raw `eth_call` for ENS resolution (no web3.py), and
+> consumes the same live `*.openagents-treasury.eth` records on Sepolia. That's
+> the test the spec needed to pass to graduate from "single-implementation
+> draft" to "interoperable protocol."
 >
 > Anthropic's Project Deal (Apr 2026) validated demand for agent-mediated commerce;
 > their own report named the gap: *"Policy and legal frameworks around AI models
@@ -120,6 +129,25 @@ Required item fields: `sku` (string), `unit_price_usd` (number),
 
 A discovery client SHOULD cache the catalog by `catalog-uri` and revalidate
 when the ENS text record changes.
+
+### Optional: HTTPS mirror at `<endpoint-base>/catalog`
+
+A seller MAY also expose its current catalog over plain HTTPS at the path
+`<endpoint-base>/catalog`, where `endpoint-base` is the host portion of
+the `procurement.endpoint` text record. The body is the same JSON.
+
+Why: clients that don't natively download from `0g://<rootHash>` (e.g. the
+Python reference buyer at `apps/buyer-py/`, or any non-TS implementation
+that doesn't bundle the 0G TypeScript SDK) can still consume the catalog
+without re-implementing the 0G download protocol.
+
+The hosted seller endpoints at `agentic-erp-eth.vercel.app` provide this
+mirror automatically by resolving the seller's ENS `catalog-uri` server-side
+(see `app/api/seller/[subname]/catalog/route.ts`). Self-hosted sellers may
+add their own equivalent or omit it.
+
+This mirror is OPTIONAL — `catalog-uri` (the ENS text record) remains the
+canonical source of truth. The mirror is a transport convenience.
 
 ---
 

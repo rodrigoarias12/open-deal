@@ -100,7 +100,10 @@ package with its own `openclaw.plugin.json`, README, and smoke test.
 ## Reference example agents
 
 Both examples consume the same three plugins. Different domains, identical
-trust property.
+trust property. The spec also has a **second buyer implementation in Python**
+(`apps/buyer-py/`) that interoperates against the same live Sepolia ENS
+records using nothing but the docs in [`PROTOCOL.md`](./PROTOCOL.md) — proof
+the spec is reimplementable, not single-implementation theatre.
 
 ### `examples/example-agent/` — autonomous treasury
 
@@ -155,6 +158,29 @@ npx tsx apps/seller-agent/src/index.ts
 # terminal 2
 npx tsx apps/buyer-agent/src/index.ts
 ```
+
+### `apps/buyer-py/` — Python second implementation (protocol-validation)
+
+A second, independent buyer written in Python. Resolves ENS via raw
+`eth_call` (no `web3.py`, no shared code with TS), pulls catalogs via the
+HTTPS mirror, and produces the same SKU-targeted RFQ + winner-pick
+output as the TS buyer.
+
+Run:
+
+```bash
+# one-time setup
+python3 -m venv apps/buyer-py/.venv
+apps/buyer-py/.venv/bin/pip install -r apps/buyer-py/requirements.txt
+
+# tick (against live Sepolia ENS records + hosted Vercel seller endpoints)
+apps/buyer-py/.venv/bin/python apps/buyer-py/buyer.py
+```
+
+The Python buyer is intentionally minimal — its purpose is to prove the
+protocol can be re-implemented in another language from PROTOCOL.md alone.
+It does not exercise the OpenClaw plugin layer, escrow, audit, or
+KeeperHub — those remain TS-only in v0.1.
 
 ---
 
