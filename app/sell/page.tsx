@@ -52,7 +52,10 @@ const SAMPLE_CATALOG = {
 export default function SellPage() {
   const [storeName, setStoreName] = useState("");
   const [email, setEmail] = useState("");
-  const [endpoint, setEndpoint] = useState("https://agentic-erp-eth.vercel.app/api/seller/__SUBNAME__/rfq");
+  // Empty by default — the /api/seller/onboard route will fill in the
+  // hosted RFQ URL when this is blank. Self-hosters reveal the field
+  // via the "advanced" disclosure and override.
+  const [endpoint, setEndpoint] = useState("");
   const [catalogText, setCatalogText] = useState(
     JSON.stringify(SAMPLE_CATALOG, null, 2),
   );
@@ -362,21 +365,33 @@ export default function SellPage() {
               </label>
             </div>
 
-            <label className="sell-field">
-              <div className="sell-label">Seller endpoint (HTTP)</div>
-              <input
-                type="url"
-                value={endpoint}
-                onChange={(e) => setEndpoint(e.target.value)}
-                placeholder="https://agentic-erp-eth.vercel.app/api/seller/__SUBNAME__/rfq"
-                disabled={submitting}
-                className="sell-input sell-input-mono"
-              />
-              <div className="sell-hint">
-                where your agent accepts RFQ posts. Leave the default to use the
-                hosted endpoint — no infra needed on your side.
-              </div>
-            </label>
+            <details className="sell-advanced">
+              <summary className="sell-advanced-summary">
+                <span className="sell-advanced-title">
+                  Self-hosting your seller agent?
+                </span>
+                <span className="sell-advanced-hint">
+                  optional · advanced · 95% of sellers skip this
+                </span>
+              </summary>
+              <label className="sell-field" style={{ marginTop: 14 }}>
+                <div className="sell-label">Seller endpoint (HTTP)</div>
+                <input
+                  type="url"
+                  value={endpoint}
+                  onChange={(e) => setEndpoint(e.target.value)}
+                  placeholder="https://your-agent.example.com/rfq"
+                  disabled={submitting}
+                  className="sell-input sell-input-mono"
+                />
+                <div className="sell-hint">
+                  Leave blank and we run a serverless responder on your behalf —
+                  no infra, no servers, no API keys. Fill this only if you want
+                  full sovereignty over your agent's runtime (your own VPS,
+                  Render, Fly, etc).
+                </div>
+              </label>
+            </details>
 
             <div className="sell-field">
               <div className="sell-label">Catalog</div>
