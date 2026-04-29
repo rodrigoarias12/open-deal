@@ -3,9 +3,9 @@ import { Demo } from "./components/Demo";
 import { FAQ } from "./components/FAQ";
 import { Loop } from "./components/Loop";
 import { Topbar } from "./components/Topbar";
-import { AssemblyLine } from "./demo4/_components/AssemblyLine";
+import { AssemblyLineV2 } from "./demo12/_components/AssemblyLineV2";
 import { FlowDiagram } from "./demo7/_components/FlowDiagram";
-import "./demo4/assembly.css";
+import "./demo12/assembly12.css";
 import "./demo7/flow.css";
 import {
   ARCH_DIAGRAM,
@@ -63,7 +63,7 @@ export default function Landing() {
             — the framework Anthropic&rsquo;s Project Deal said doesn&rsquo;t exist yet.
           </p>
 
-          <AssemblyLine />
+          <AssemblyLineV2 />
 
           <div
             className="hero-stats"

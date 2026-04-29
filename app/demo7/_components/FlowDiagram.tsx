@@ -59,7 +59,7 @@ export function FlowDiagram() {
       <div className="demo7-band demo7-band-human">
         <div className="demo7-band-tag demo7-band-tag-human">Human involvement</div>
         <div className="demo7-band-inner">
-          <div className="demo7-row demo7-row-2">
+          <div className="demo7-stack">
             <Box
               id="set-policy"
               active={active === "set-policy"}
@@ -67,8 +67,9 @@ export function FlowDiagram() {
               badge="1"
               title="Set policy"
               desc="Caps, allowed sellers, cooldowns, blackouts. Written as ENS text records under treasury.*"
+              wide
             />
-            <ArrowH active={active === "set-policy" || active === "connect-erp"} />
+            <ArrowDown active={active === "set-policy" || active === "connect-erp"} />
             <Box
               id="connect-erp"
               active={active === "connect-erp"}
@@ -76,6 +77,7 @@ export function FlowDiagram() {
               badge="2"
               title="Connect ERP"
               desc="Point at your Odoo instance. JSON-RPC, 60s cache. No data migration."
+              wide
             />
           </div>
         </div>
@@ -93,7 +95,7 @@ export function FlowDiagram() {
       <div className="demo7-band demo7-band-auto">
         <div className="demo7-band-tag demo7-band-tag-auto">Fully autonomous</div>
         <div className="demo7-band-inner">
-          <div className="demo7-sub-tag">Sellers discovered via ENS subnames</div>
+          <div className="demo7-sub-tag">Sellers discovered via ENS catalog-uri + SKU index</div>
 
           <div className="demo7-row demo7-row-4">
             <SellerBox
