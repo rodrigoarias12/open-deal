@@ -5,9 +5,10 @@ import { runProcurementTick } from "../../../../apps/buyer-agent/src/index";
 
 // Long-running SSE stream: same pipeline as /api/procurement-tick, but
 // each console.log inside the run is pushed as an event so the UI can
-// render a live terminal. Vercel pro caps maxDuration at 300s; for the
-// demo we expect ~3-6 min so on hobby this might cut short.
-export const maxDuration = 600;
+// render a live terminal. Hobby plan caps maxDuration at 300s. With the
+// new parallelized pipeline a 4-SKU run completes in ~90-120s so 300s
+// is comfortable; if a Telegram approval times out (90s) we still fit.
+export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
 function formatArg(a: unknown): string {
