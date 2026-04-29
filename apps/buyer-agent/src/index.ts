@@ -1,11 +1,11 @@
 import "dotenv/config";
 import { readFile } from "node:fs/promises";
 import { Contract, JsonRpcProvider, Wallet, keccak256, parseEther, toUtf8Bytes } from "ethers";
-import policyPlugin from "../../../plugins/policy-from-ens/src/index.js";
-import auditPlugin from "../../../plugins/audit-to-0g/src/index.js";
-import { pickBuyerConnector } from "../../../src/connectors/buyer/factory.js";
-import { TelegramApprover, type ApprovalResult } from "../../../src/notify/telegram.js";
-import { readHistoryFrom0G } from "./history-from-0g.js";
+import policyPlugin from "../../../plugins/policy-from-ens/src/index";
+import auditPlugin from "../../../plugins/audit-to-0g/src/index";
+import { pickBuyerConnector } from "../../../src/connectors/buyer/factory";
+import { TelegramApprover, type ApprovalResult } from "../../../src/notify/telegram";
+import { readHistoryFrom0G } from "./history-from-0g";
 
 interface Need {
   sku: string;
@@ -124,7 +124,19 @@ async function lockEscrow(args: {
   };
 }
 
-async function readNeedsFromConnector(buyer: BuyerConfig): Promise<Need[]> {
+async function readNeedsFromConnector(
+  buyer: BuyerConfig,
+): Promise<{
+  needs: Need[];
+  // The same connector instance is returned so the caller can write
+  // resolved orders back to it (see pushOrder closing the loop).
+  connector: Awaited<ReturnType<typeof pickBuyerConnector>>;
+  // Whether the needs returned came from the connector (true) or from
+  // the fallback fixture (false). pushOrder is only meaningful in the
+  // first case — there's no point writing back to a connector that
+  // didn't see the need in the first place.
+  fromConnector: boolean;
+}> {
   const connector = await pickBuyerConnector();
   console.log(`[buyer] connector: ${connector.id} — ${connector.name}`);
   try {
@@ -136,20 +148,24 @@ async function readNeedsFromConnector(buyer: BuyerConfig): Promise<Need[]> {
           `[buyer]     - ${item.sku} qty=${item.current_stock ?? "?"} order=${item.quantity}${item.name ? ` "${item.name}"` : ""}`,
         );
       }
-      return items.map((it) => ({
-        sku: it.sku,
-        quantity: it.quantity,
-        max_unit_price_usd: it.max_unit_price_usd ?? 100,
-        deadline_days: it.deadline_days,
-        reason: it.reason,
-      }));
+      return {
+        connector,
+        fromConnector: true,
+        needs: items.map((it) => ({
+          sku: it.sku,
+          quantity: it.quantity,
+          max_unit_price_usd: it.max_unit_price_usd ?? 100,
+          deadline_days: it.deadline_days,
+          reason: it.reason,
+        })),
+      };
     }
     console.log(`[buyer]   (${connector.id} returned 0 items — falling back to fixture needs)`);
   } catch (e) {
     console.log(`[buyer]   ⚠ connector error: ${(e as Error).message} — falling back to fixture`);
   }
   console.log(`[buyer] using fixture needs from needs.json`);
-  return buyer.needs;
+  return { connector, fromConnector: false, needs: buyer.needs };
 }
 
 async function resolveSellers(
@@ -305,7 +321,38 @@ function pickWinner(need: Need, quotes: Quote[]): Quote | null {
   return priced[0];
 }
 
-async function main(): Promise<void> {
+/**
+ * One resolved order — the structured equivalent of the per-need log lines.
+ * Returned from runProcurementTick so callers (CLI, /api/procurement-tick,
+ * Vercel cron, dashboard) can render the result without re-parsing logs.
+ */
+export interface ResolvedOrder {
+  sku: string;
+  quantity: number;
+  winner_ens: string | null;
+  winner_total_usd: number | null;
+  escrow_tx: string | null;
+  escrow_explorer_url: string | null;
+  escrow_order_id: string | null;
+  audit_anchor_index: string | null;
+  audit_anchor_tx: string | null;
+  erp_po_id: string | null;
+  erp_po_url: string | null;
+  skipped_reason: string | null;
+}
+
+export interface ProcurementTickResult {
+  at: string;
+  buyer_ens: string;
+  connector_id: string;
+  connector_name: string;
+  needs_count: number;
+  orders: ResolvedOrder[];
+}
+
+export async function runProcurementTick(): Promise<ProcurementTickResult> {
+  const orders: ResolvedOrder[] = [];
+
   if (!process.env.ZG_AUDIT_ANCHOR) {
     const anchor = JSON.parse(
       await readFile("contracts/AuditAnchor.deployment.json", "utf8"),
@@ -364,10 +411,14 @@ async function main(): Promise<void> {
 
   console.log(`[buyer] ${buyer.buyer} (${buyer.buyer_ens})`);
 
-  const needs = await readNeedsFromConnector(buyer);
+  const { needs, connector, fromConnector } = await readNeedsFromConnector(buyer);
   console.log(
     `[buyer] ${needs.length} pending need(s) · ${registry.sellers.length} seller subname(s) in registry`,
   );
+  const canWriteBack = fromConnector && typeof connector.pushOrder === "function";
+  if (canWriteBack) {
+    console.log(`[buyer]   ↺ writeback enabled — orders will be pushed back to ${connector.id}`);
+  }
 
   const ensRpc =
     process.env.MAINNET_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com";
@@ -387,12 +438,28 @@ async function main(): Promise<void> {
 
   for (const need of needs) {
     const rfqId = `rfq-${Date.now()}-${need.sku}`;
+    const order: ResolvedOrder = {
+      sku: need.sku,
+      quantity: need.quantity,
+      winner_ens: null,
+      winner_total_usd: null,
+      escrow_tx: null,
+      escrow_explorer_url: null,
+      escrow_order_id: null,
+      audit_anchor_index: null,
+      audit_anchor_tx: null,
+      erp_po_id: null,
+      erp_po_url: null,
+      skipped_reason: null,
+    };
+    orders.push(order);
     console.log(`\n[buyer] need: ${need.sku} x${need.quantity} (${need.reason})`);
     console.log(`[buyer] broadcasting ${rfqId}…`);
 
     const quotes = await broadcastRfq(sellers, rfqId, need, buyer);
     if (quotes.length === 0) {
       console.log(`[buyer] no quotes for ${need.sku} — skipping`);
+      order.skipped_reason = "no quotes received";
       continue;
     }
 
@@ -401,8 +468,11 @@ async function main(): Promise<void> {
       console.log(
         `[buyer] no quote within budget (max $${need.max_unit_price_usd}/u, ≤${need.deadline_days}d) — skipping`,
       );
+      order.skipped_reason = "no quote within budget";
       continue;
     }
+    order.winner_ens = winner.source_ens ?? null;
+    order.winner_total_usd = winner.total_usd;
     console.log(
       `[buyer] winner: ${winner.source_ens} → $${winner.total_usd} ${winner.currency}, ${winner.delivery_days}d`,
     );
@@ -453,6 +523,7 @@ async function main(): Promise<void> {
     );
     if (!policy.details.allowed) {
       console.log(`[buyer] policy denied — skipping payment.`);
+      order.skipped_reason = `policy denied: ${policy.details.reason ?? "unknown"}`;
       continue;
     }
 
@@ -464,11 +535,14 @@ async function main(): Promise<void> {
       quantity: winner.quantity,
       deadlineDays: winner.delivery_days + 1,
     });
+    order.escrow_tx = escrowResult.txHash;
+    order.escrow_explorer_url = `https://sepolia.etherscan.io/tx/${escrowResult.txHash}`;
+    order.escrow_order_id = escrowResult.orderId;
     console.log(
       `[buyer]   → order #${escrowResult.orderId}, locked ${escrowResult.amountEth} ETH (mock $${winner.total_usd}), tx ${escrowResult.txHash.slice(0, 16)}…`,
     );
     console.log(
-      `[buyer]   → explorer: https://sepolia.etherscan.io/tx/${escrowResult.txHash}`,
+      `[buyer]   → explorer: ${order.escrow_explorer_url}`,
     );
 
     console.log(`[buyer] audit to 0G…`);
@@ -498,15 +572,64 @@ async function main(): Promise<void> {
         chain: { txHash: string; explorer: string; anchorIndex: string };
       };
     };
+    order.audit_anchor_index = audit.details.chain.anchorIndex;
+    order.audit_anchor_tx = audit.details.chain.txHash;
     console.log(
       `[buyer]   → audit anchor #${audit.details.chain.anchorIndex} tx ${audit.details.chain.txHash.slice(0, 16)}…`,
     );
+
+    // ── Close the loop: write the resolved purchase order back to the
+    // source system (Odoo / Excel / SAP). This is what makes the agent
+    // "connected to the real world" — the ERP sees what the agent did
+    // instead of running in a parallel universe.
+    if (canWriteBack) {
+      console.log(`[buyer] writeback to ${connector.id} (${connector.name})…`);
+      try {
+        const placed = await connector.pushOrder!({
+          sku: winner.sku,
+          quantity: winner.quantity,
+          unit_price_usd: winner.unit_price_usd,
+          total_usd: winner.total_usd,
+          seller_ens: winner.source_ens ?? "unknown",
+          seller_address: winner.seller_address,
+          escrow_tx: escrowResult.txHash,
+          escrow_order_id: escrowResult.orderId,
+          audit_anchor_index: audit.details.chain.anchorIndex,
+          at: new Date().toISOString(),
+        });
+        order.erp_po_id = placed.id;
+        order.erp_po_url = placed.url ?? null;
+        console.log(
+          `[buyer]   → ✓ ${connector.id} PO ${placed.id}${placed.url ? ` · ${placed.url}` : ""}`,
+        );
+      } catch (e) {
+        console.log(
+          `[buyer]   ⚠ writeback failed (${(e as Error).message}) — chain state is correct, ERP missed it`,
+        );
+      }
+    }
   }
 
   console.log(`\n[buyer] tick complete ✓`);
+
+  return {
+    at: new Date().toISOString(),
+    buyer_ens: buyer.buyer_ens,
+    connector_id: connector.id,
+    connector_name: connector.name,
+    needs_count: needs.length,
+    orders,
+  };
 }
 
-main().catch((e) => {
-  console.error("[buyer] failed:", e);
-  process.exit(1);
-});
+// CLI entry point: only auto-runs when invoked directly via tsx /
+// node — not when imported by /api/procurement-tick or tests.
+const isCli =
+  import.meta.url.endsWith("/buyer-agent/src/index.ts") &&
+  Boolean(process.argv[1]?.includes("buyer-agent"));
+if (isCli) {
+  runProcurementTick().catch((e) => {
+    console.error("[buyer] failed:", e);
+    process.exit(1);
+  });
+}

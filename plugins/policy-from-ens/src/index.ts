@@ -4,7 +4,7 @@ import {
   enforcePolicy,
   loadPolicy,
   type PolicyCheckInput,
-} from "./policy.js";
+} from "./policy";
 
 const PolicyCheckSchema = Type.Object(
   {
