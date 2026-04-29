@@ -1960,3 +1960,242 @@ footer {
 .settle-link:hover {
   opacity: 0.85;
 }
+
+/* ── Live demo: replay (left) + last real tick (right) ─────────────── */
+.demo-dual-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 24px;
+  align-items: stretch;
+}
+@media (max-width: 1080px) {
+  .demo-dual-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.demo-dual-left,
+.demo-dual-right {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.demo-dual-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+  margin-bottom: 10px;
+  padding-left: 2px;
+}
+.demo-dual-eyebrow.accent {
+  color: var(--accent);
+}
+
+/* ── Live tick panel ─────────────────────────────────────────────────── */
+.livetick {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 5%, transparent) 0%,
+    transparent 70%
+  );
+  border-radius: 6px;
+  padding: 18px 20px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.livetick-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed color-mix(in srgb, var(--ink) 16%, transparent);
+}
+.livetick-badge {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  color: var(--accent);
+}
+.livetick-when {
+  font-size: 11px;
+  color: color-mix(in srgb, var(--ink) 60%, transparent);
+}
+.livetick-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 28px 8px;
+  text-align: center;
+}
+.livetick-empty-line {
+  font-size: 13px;
+  color: color-mix(in srgb, var(--ink) 75%, transparent);
+}
+.livetick-empty-sub {
+  font-size: 12px;
+  margin-top: 8px;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+  line-height: 1.5;
+}
+.livetick-meta-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed color-mix(in srgb, var(--ink) 16%, transparent);
+}
+.livetick-meta-label {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+  margin-bottom: 3px;
+}
+.livetick-meta-value {
+  font-size: 12px;
+  color: var(--ink);
+  word-break: break-all;
+}
+.livetick-orders {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.livetick-order {
+  border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  border-radius: 4px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+}
+.livetick-order-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.livetick-order-sku {
+  font-size: 13px;
+  color: var(--ink);
+}
+.livetick-order-winner {
+  font-size: 11px;
+  color: color-mix(in srgb, var(--ink) 65%, transparent);
+}
+.livetick-artifacts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.livetick-artifact {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  text-decoration: none;
+  padding: 3px 0;
+  color: var(--ink);
+  border-bottom: 1px dotted transparent;
+}
+.livetick-artifact:hover {
+  border-bottom-color: color-mix(in srgb, var(--accent) 50%, transparent);
+}
+.livetick-artifact-label {
+  color: color-mix(in srgb, var(--ink) 60%, transparent);
+}
+.livetick-artifact-value {
+  color: var(--accent);
+}
+.livetick-foot {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed color-mix(in srgb, var(--ink) 16%, transparent);
+  font-size: 11px;
+  color: color-mix(in srgb, var(--ink) 60%, transparent);
+  text-align: center;
+}
+.livetick-foot-em {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ── Dashboard procurement-tick block ──────────────────────────────── */
+.dash-procurement {
+  margin: 16px 0 24px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 5%, transparent) 0%,
+    transparent 70%
+  );
+  border-radius: 6px;
+  padding: 16px 20px;
+}
+.dash-procurement-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.dash-procurement-result {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px dashed color-mix(in srgb, var(--ink) 18%, transparent);
+}
+.dash-procurement-meta {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: color-mix(in srgb, var(--ink) 70%, transparent);
+}
+.dash-procurement-meta code {
+  color: var(--ink);
+  background: none;
+  padding: 0;
+}
+.dash-procurement-order {
+  border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  border-radius: 4px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+}
+.dash-procurement-order-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.dash-procurement-artifacts {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.dash-procurement-artifacts a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px dotted transparent;
+}
+.dash-procurement-artifacts a:hover {
+  border-bottom-color: var(--accent);
+}

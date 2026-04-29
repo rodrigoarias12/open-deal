@@ -1,6 +1,7 @@
 import { AuditList } from "./components/AuditList";
 import { Demo } from "./components/Demo";
 import { FAQ } from "./components/FAQ";
+import { LiveTickPanel } from "./components/LiveTickPanel";
 import { Loop } from "./components/Loop";
 import { Topbar } from "./components/Topbar";
 import { AssemblyLine } from "./demo4/_components/AssemblyLine";
@@ -522,13 +523,36 @@ export default function Landing() {
       <section id="demo">
         <div className="container">
           <div className="section-tag">live demo</div>
-          <h2 className="section-title">Run a buyer tick. Watch it think.</h2>
-          <p className="section-lede">
-            Replays a recorded buyer-agent run from a real fixture. No wallet required. The
-            pipeline is the same code path as production — Odoo → ENS RFQ → Claude → policy gate →
-            Sepolia escrow → 0G anchor.
+          <h2
+            className="section-title"
+            style={{ textAlign: "center", margin: "0 auto 24px", maxWidth: 880 }}
+          >
+            Two views.{" "}
+            <span className="em">One pipeline.</span>
+          </h2>
+          <p
+            className="section-lede"
+            style={{ textAlign: "center", margin: "0 auto 56px", maxWidth: 760 }}
+          >
+            On the left, an animated replay of the buyer-agent loop — useful
+            for understanding the flow without spending gas. On the right, the
+            artifacts of the most recent <em>real</em> tick — the same pipeline,
+            but on Sepolia, on 0G Galileo, and into a real Odoo instance, fired
+            unattended by a Vercel cron every six hours.
           </p>
-          <Demo />
+
+          <div className="demo-dual-grid">
+            <div className="demo-dual-left">
+              <div className="demo-dual-eyebrow">animated · replay · safe</div>
+              <Demo />
+            </div>
+            <div className="demo-dual-right">
+              <div className="demo-dual-eyebrow accent">
+                onchain · real · last run
+              </div>
+              <LiveTickPanel />
+            </div>
+          </div>
         </div>
       </section>
 
