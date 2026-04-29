@@ -127,29 +127,20 @@ export class OdooBuyerConnector implements BuyerInventoryConnector {
       partnerId = newIds[0];
     }
 
-    // 3. Create the purchase.order. State stays draft; we confirm it
-    //    immediately below so it lands in 'purchase' state — the ERP
-    //    sees it as a real, committed order.
-    const notes = [
-      "Created by Open Deal autonomous agent",
-      `escrow tx: ${order.escrow_tx}`,
-      `escrow order id: ${order.escrow_order_id}`,
-      order.audit_anchor_index
-        ? `audit anchor: #${order.audit_anchor_index} on 0G Galileo`
-        : null,
-      `seller ENS: ${order.seller_ens}`,
-      `agent ts: ${order.at}`,
-    ]
-      .filter(Boolean)
-      .join("\n");
-
+    // 3. Create the purchase.order. Odoo 17+ removed the `notes` field
+    //    from purchase.order; we put a compact summary in `partner_ref`
+    //    (visible in the PO list view) and post the full chain artifacts
+    //    as a message_post comment after creation.
+    const summary = `escrow:${order.escrow_tx.slice(0, 10)}… anchor:#${
+      order.audit_anchor_index ?? "—"
+    }`;
     const poIds = await this.client.call<number[]>(
       "purchase.order",
       "create",
       [[{
         partner_id: partnerId,
         origin: `open-deal:${order.escrow_tx.slice(0, 14)}…`,
-        notes,
+        partner_ref: summary,
         order_line: [
           [
             0,
@@ -173,6 +164,36 @@ export class OdooBuyerConnector implements BuyerInventoryConnector {
       await this.client.call("purchase.order", "button_confirm", [[poId]]);
     } catch (e) {
       console.log(`[${this.id}] PO ${poId} created but not confirmed: ${(e as Error).message}`);
+    }
+
+    // 4b. Attach the full chain artifacts as the first comment on the
+    //     PO's chatter (mail.thread inherited). This is the Odoo-17+
+    //     idiomatic way to add unstructured operational notes — visible
+    //     in the right-side timeline of the PO record. Best-effort: if
+    //     the mail module isn't installed, the PO still exists with the
+    //     compact summary in partner_ref.
+    const chatterHtml = [
+      `<p><strong>Created by Open Deal autonomous agent</strong></p>`,
+      `<ul>`,
+      `<li>escrow tx: <code>${order.escrow_tx}</code></li>`,
+      `<li>escrow order id: <code>${order.escrow_order_id}</code></li>`,
+      order.audit_anchor_index
+        ? `<li>audit anchor: <code>#${order.audit_anchor_index}</code> on 0G Galileo</li>`
+        : "",
+      `<li>seller ENS: <code>${order.seller_ens}</code></li>`,
+      `<li>seller wallet: <code>${order.seller_address}</code></li>`,
+      `<li>agent ts: <code>${order.at}</code></li>`,
+      `</ul>`,
+    ]
+      .filter(Boolean)
+      .join("");
+    try {
+      await this.client.call("purchase.order", "message_post", [[poId]], {
+        body: chatterHtml,
+        message_type: "comment",
+      });
+    } catch (e) {
+      console.log(`[${this.id}] PO ${poId} chatter note skipped: ${(e as Error).message}`);
     }
 
     // 5. Read back the name (e.g., "P00042") for the return value.
