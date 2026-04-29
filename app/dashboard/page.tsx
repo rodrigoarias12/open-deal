@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { loadDashboardState } from "../lib/state";
 import { RunTickButton } from "../RunTickButton";
-import { RunProcurementTickButton } from "../RunProcurementTickButton";
+import { LiveTerminal } from "../components/LiveTerminal";
 import type { Tick } from "../../src/agent/core";
 
 export const dynamic = "force-dynamic";
@@ -52,7 +52,9 @@ export default async function Dashboard() {
         <RunTickButton />
       </div>
 
-      <RunProcurementTickButton />
+      <div style={{ margin: "16px 0 24px" }}>
+        <LiveTerminal />
+      </div>
 
       <div className="dash-grid">
         <div className="dash-card">

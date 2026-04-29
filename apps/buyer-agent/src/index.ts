@@ -515,9 +515,33 @@ export async function runProcurementTick(): Promise<ProcurementTickResult> {
     throw new Error("plugins did not register expected tools");
   }
 
-  for (const need of needs) {
-    const rfqId = `rfq-${Date.now()}-${need.sku}`;
-    const order: ResolvedOrder = {
+  // ── Pipeline structure (parallelized) ────────────────────────────────
+  //
+  //   Phase A — pre-flight (parallel)
+  //     N RFQs broadcast at once, winners picked, patterns detected
+  //   Phase A2 — telegram approvals (serial, only triggered patterns)
+  //   Phase A3 — policy gate (parallel, read-only)
+  //   Phase B — escrow locks (serial — same wallet nonce, can't overlap)
+  //   Phase C — ONE batched audit upload to 0G covering all decisions
+  //   Phase D — Odoo writeback (parallel)
+  //
+  // Per-SKU intermediate state lives in `slots[]`, ordered to match `needs[]`.
+  type Slot = {
+    need: Need;
+    rfqId: string;
+    order: ResolvedOrder;
+    quotes: Quote[];
+    winner: Quote | null;
+    pattern: PatternSignal | null;
+    approval: ApprovalResult | null;
+    policySnapshot: unknown;
+    escrow: Awaited<ReturnType<typeof lockEscrow>> | null;
+  };
+
+  const slots: Slot[] = needs.map((need) => ({
+    need,
+    rfqId: `rfq-${Date.now()}-${need.sku}`,
+    order: {
       sku: need.sku,
       quantity: need.quantity,
       winner_ens: null,
@@ -530,120 +554,183 @@ export async function runProcurementTick(): Promise<ProcurementTickResult> {
       erp_po_id: null,
       erp_po_url: null,
       skipped_reason: null,
-    };
-    orders.push(order);
-    console.log(`\n[buyer] need: ${need.sku} x${need.quantity} (${need.reason})`);
-    console.log(`[buyer] broadcasting ${rfqId}…`);
+    },
+    quotes: [],
+    winner: null,
+    pattern: null,
+    approval: null,
+    policySnapshot: null,
+    escrow: null,
+  }));
+  for (const s of slots) orders.push(s.order);
 
-    const quotes = await broadcastRfq(sellers, rfqId, need, buyer);
-    if (quotes.length === 0) {
-      console.log(`[buyer] no quotes for ${need.sku} — skipping`);
-      order.skipped_reason = "no quotes received";
-      continue;
-    }
-
-    const winner = pickWinner(need, quotes);
-    if (!winner) {
+  // ── Phase A — RFQ + winner pick + pattern (parallel across SKUs) ──────
+  console.log(
+    `\n[buyer] phase A · broadcasting ${slots.length} RFQ(s) in parallel…`,
+  );
+  await Promise.all(
+    slots.map(async (s) => {
+      console.log(`[buyer] need: ${s.need.sku} x${s.need.quantity} (${s.need.reason})`);
+      console.log(`[buyer] broadcasting ${s.rfqId}…`);
+      const quotes = await broadcastRfq(sellers, s.rfqId, s.need, buyer);
+      s.quotes = quotes;
+      if (quotes.length === 0) {
+        console.log(`[buyer] no quotes for ${s.need.sku} — skipping`);
+        s.order.skipped_reason = "no quotes received";
+        return;
+      }
+      const winner = pickWinner(s.need, quotes);
+      if (!winner) {
+        console.log(
+          `[buyer] no quote within budget for ${s.need.sku} (max $${s.need.max_unit_price_usd}/u, ≤${s.need.deadline_days}d) — skipping`,
+        );
+        s.order.skipped_reason = "no quote within budget";
+        return;
+      }
+      s.winner = winner;
+      s.order.winner_ens = winner.source_ens ?? null;
+      s.order.winner_total_usd = winner.total_usd;
       console.log(
-        `[buyer] no quote within budget (max $${need.max_unit_price_usd}/u, ≤${need.deadline_days}d) — skipping`,
+        `[buyer] winner ${s.need.sku}: ${winner.source_ens} → $${winner.total_usd} ${winner.currency}, ${winner.delivery_days}d`,
       );
-      order.skipped_reason = "no quote within budget";
+      s.pattern = detectPattern(
+        history.purchases,
+        s.need.sku,
+        winner.source_ens ?? "unknown",
+        winner.unit_price_usd,
+      );
+    }),
+  );
+
+  // ── Phase A2 — telegram approvals (serial, one prompt at a time) ──────
+  for (const s of slots) {
+    if (!s.winner || !s.pattern) continue;
+    if (!(s.pattern.is_recurring && s.pattern.is_better_deal)) {
+      console.log(`[buyer] pattern ${s.need.sku}: ${s.pattern.message}`);
       continue;
     }
-    order.winner_ens = winner.source_ens ?? null;
-    order.winner_total_usd = winner.total_usd;
-    console.log(
-      `[buyer] winner: ${winner.source_ens} → $${winner.total_usd} ${winner.currency}, ${winner.delivery_days}d`,
-    );
-
-    const pattern = detectPattern(
-      history.purchases,
-      need.sku,
-      winner.source_ens ?? "unknown",
-      winner.unit_price_usd,
-    );
-    let approval: ApprovalResult | null = null;
-    if (pattern.is_recurring && pattern.is_better_deal) {
-      console.log(`[buyer] 🚨 PATTERN TRIGGER — pinging human:`);
-      console.log(`[buyer]   ${pattern.message}`);
-      if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
-        const tg = new TelegramApprover({
-          token: process.env.TELEGRAM_BOT_TOKEN,
-          chatId: process.env.TELEGRAM_CHAT_ID,
-        });
-        console.log(`[buyer] sending approval request to Telegram…`);
-        approval = await tg.requestApproval({
-          title: `Mejor oferta para ${need.sku}`,
-          summary: pattern.message,
-          amount_usd: winner.total_usd,
-          timeoutMs: 90_000,
-        });
-        console.log(`[buyer]   → ${approval.approved ? "✅ APPROVED" : "✖ NOT APPROVED"} (${approval.reason})`);
-        if (!approval.approved) {
-          console.log(`[buyer] human did not approve — skipping ${need.sku}`);
-          continue;
-        }
-      } else {
-        console.log(`[buyer]   (TELEGRAM_BOT_TOKEN/CHAT_ID not set — skipping human prompt, auto-proceeding for demo)`);
+    console.log(`[buyer] 🚨 PATTERN TRIGGER (${s.need.sku}) — pinging human:`);
+    console.log(`[buyer]   ${s.pattern.message}`);
+    if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
+      const tg = new TelegramApprover({
+        token: process.env.TELEGRAM_BOT_TOKEN,
+        chatId: process.env.TELEGRAM_CHAT_ID,
+      });
+      console.log(`[buyer] sending approval request to Telegram (${s.need.sku})…`);
+      s.approval = await tg.requestApproval({
+        title: `Mejor oferta para ${s.need.sku}`,
+        summary: s.pattern.message,
+        amount_usd: s.winner.total_usd,
+        timeoutMs: 90_000,
+      });
+      console.log(
+        `[buyer]   → ${s.approval.approved ? "✅ APPROVED" : "✖ NOT APPROVED"} (${s.approval.reason})`,
+      );
+      if (!s.approval.approved) {
+        console.log(`[buyer] human did not approve — skipping ${s.need.sku}`);
+        s.order.skipped_reason = `human declined: ${s.approval.reason}`;
+        s.winner = null;
       }
     } else {
-      console.log(`[buyer] pattern: ${pattern.message}`);
+      console.log(
+        `[buyer]   (TELEGRAM_BOT_TOKEN/CHAT_ID not set — skipping human prompt, auto-proceeding for demo)`,
+      );
     }
+  }
 
-    console.log(`[buyer] policy gate via policy-from-ens…`);
-    const policy = (await policyCheck.execute("call-policy", {
-      action: "pay_carrier",
-      carrier_id: winner.seller_address,
-      amount_usd: String(winner.total_usd),
-      ens_name: buyer.buyer_ens,
-    })) as { details: { allowed: boolean; reason: string | null; policy: unknown } };
-    console.log(
-      `[buyer]   → allowed=${policy.details.allowed}, reason=${policy.details.reason ?? "ok"}`,
-    );
-    if (!policy.details.allowed) {
-      console.log(`[buyer] policy denied — skipping payment.`);
-      order.skipped_reason = `policy denied: ${policy.details.reason ?? "unknown"}`;
-      continue;
+  // ── Phase A3 — policy gate (parallel) ─────────────────────────────────
+  console.log(`\n[buyer] phase A3 · policy gate via policy-from-ens (parallel)…`);
+  await Promise.all(
+    slots.map(async (s) => {
+      if (!s.winner) return;
+      const policy = (await policyCheck.execute("call-policy", {
+        action: "pay_carrier",
+        carrier_id: s.winner.seller_address,
+        amount_usd: String(s.winner.total_usd),
+        ens_name: buyer.buyer_ens,
+      })) as { details: { allowed: boolean; reason: string | null; policy: unknown } };
+      console.log(
+        `[buyer]   ${s.need.sku} → allowed=${policy.details.allowed}${policy.details.reason ? `, reason=${policy.details.reason}` : ""}`,
+      );
+      s.policySnapshot = policy.details.policy;
+      if (!policy.details.allowed) {
+        s.order.skipped_reason = `policy denied: ${policy.details.reason ?? "unknown"}`;
+        s.winner = null;
+      }
+    }),
+  );
+
+  // ── Phase B — escrow locks (serial, same wallet nonce) ───────────────
+  const approvedSlots = slots.filter((s) => s.winner !== null);
+  console.log(
+    `\n[buyer] phase B · locking ${approvedSlots.length} escrow(s) on Sepolia (serial)…`,
+  );
+  for (const s of approvedSlots) {
+    if (!s.winner) continue;
+    console.log(`[buyer] locking funds for ${s.need.sku}…`);
+    try {
+      const escrowResult = await lockEscrow({
+        sellerAddress: s.winner.seller_address,
+        amountUsd: s.winner.total_usd,
+        sku: s.winner.sku,
+        quantity: s.winner.quantity,
+        deadlineDays: s.winner.delivery_days + 1,
+      });
+      s.escrow = escrowResult;
+      s.order.escrow_tx = escrowResult.txHash;
+      s.order.escrow_explorer_url = `https://sepolia.etherscan.io/tx/${escrowResult.txHash}`;
+      s.order.escrow_order_id = escrowResult.orderId;
+      console.log(
+        `[buyer]   → ${s.need.sku} order #${escrowResult.orderId} · locked ${escrowResult.amountEth} ETH · tx ${escrowResult.txHash.slice(0, 16)}…`,
+      );
+    } catch (e) {
+      console.log(`[buyer]   ⚠ escrow lock failed for ${s.need.sku}: ${(e as Error).message}`);
+      s.order.skipped_reason = `escrow lock failed: ${(e as Error).message}`;
+      s.winner = null;
     }
+  }
 
-    console.log(`[buyer] locking funds in ProcurementEscrow…`);
-    const escrowResult = await lockEscrow({
-      sellerAddress: winner.seller_address,
-      amountUsd: winner.total_usd,
-      sku: winner.sku,
-      quantity: winner.quantity,
-      deadlineDays: winner.delivery_days + 1,
-    });
-    order.escrow_tx = escrowResult.txHash;
-    order.escrow_explorer_url = `https://sepolia.etherscan.io/tx/${escrowResult.txHash}`;
-    order.escrow_order_id = escrowResult.orderId;
+  // ── Phase C — single batched audit on 0G ─────────────────────────────
+  // Instead of one upload+anchor per SKU, we collect every decision into
+  // one record. One 0G Storage upload, one AuditAnchor.append() — all
+  // orders in this tick share the same anchor index. Saves ~30s per
+  // skipped audit. The decision is the unit of audit; the tick groups them.
+  const lockedSlots = slots.filter((s) => s.escrow !== null);
+  if (lockedSlots.length > 0) {
+    const tickId = `tick-${Date.now()}`;
     console.log(
-      `[buyer]   → order #${escrowResult.orderId}, locked ${escrowResult.amountEth} ETH (mock $${winner.total_usd}), tx ${escrowResult.txHash.slice(0, 16)}…`,
+      `\n[buyer] phase C · batched audit · ${lockedSlots.length} decision(s) → 0G in ONE upload…`,
     );
-    console.log(
-      `[buyer]   → explorer: ${order.escrow_explorer_url}`,
-    );
-
-    console.log(`[buyer] audit to 0G…`);
     const audit = (await recordAudit.execute("call-audit", {
       record: {
         at: new Date().toISOString(),
-        case: "agentic-erp-rfq-decision",
+        case: "agentic-erp-batched-tick",
+        schema: "procurement.audit.v1",
         buyer: buyer.buyer,
-        rfq_id: rfqId,
-        need,
-        quotes,
-        winner: { ens: winner.source_ens, total_usd: winner.total_usd },
-        pattern,
-        approval,
-        policy: policy.details.policy,
-        escrow: {
-          contract: escrowResult.address,
-          orderId: escrowResult.orderId,
-          amountEth: escrowResult.amountEth,
-          txHash: escrowResult.txHash,
-          chain: "sepolia",
-        },
+        buyer_ens: buyer.buyer_ens,
+        tick_id: tickId,
+        decisions: lockedSlots.map((s, idx) => ({
+          decision_index: idx,
+          rfq_id: s.rfqId,
+          need: s.need,
+          quotes: s.quotes,
+          winner: {
+            ens: s.winner!.source_ens,
+            total_usd: s.winner!.total_usd,
+            unit_price_usd: s.winner!.unit_price_usd,
+            delivery_days: s.winner!.delivery_days,
+          },
+          pattern: s.pattern,
+          approval: s.approval,
+          policy: s.policySnapshot,
+          escrow: {
+            contract: s.escrow!.address,
+            orderId: s.escrow!.orderId,
+            amountEth: s.escrow!.amountEth,
+            txHash: s.escrow!.txHash,
+            chain: "sepolia",
+          },
+        })),
       },
     })) as {
       details: {
@@ -651,42 +738,48 @@ export async function runProcurementTick(): Promise<ProcurementTickResult> {
         chain: { txHash: string; explorer: string; anchorIndex: string };
       };
     };
-    order.audit_anchor_index = audit.details.chain.anchorIndex;
-    order.audit_anchor_tx = audit.details.chain.txHash;
     console.log(
-      `[buyer]   → audit anchor #${audit.details.chain.anchorIndex} tx ${audit.details.chain.txHash.slice(0, 16)}…`,
+      `[buyer]   → audit anchor #${audit.details.chain.anchorIndex} tx ${audit.details.chain.txHash.slice(0, 16)}… (covers ${lockedSlots.length} order(s))`,
     );
-
-    // ── Close the loop: write the resolved purchase order back to the
-    // source system (Odoo / Excel / SAP). This is what makes the agent
-    // "connected to the real world" — the ERP sees what the agent did
-    // instead of running in a parallel universe.
-    if (canWriteBack) {
-      console.log(`[buyer] writeback to ${connector.id} (${connector.name})…`);
-      try {
-        const placed = await connector.pushOrder!({
-          sku: winner.sku,
-          quantity: winner.quantity,
-          unit_price_usd: winner.unit_price_usd,
-          total_usd: winner.total_usd,
-          seller_ens: winner.source_ens ?? "unknown",
-          seller_address: winner.seller_address,
-          escrow_tx: escrowResult.txHash,
-          escrow_order_id: escrowResult.orderId,
-          audit_anchor_index: audit.details.chain.anchorIndex,
-          at: new Date().toISOString(),
-        });
-        order.erp_po_id = placed.id;
-        order.erp_po_url = placed.url ?? null;
-        console.log(
-          `[buyer]   → ✓ ${connector.id} PO ${placed.id}${placed.url ? ` · ${placed.url}` : ""}`,
-        );
-      } catch (e) {
-        console.log(
-          `[buyer]   ⚠ writeback failed (${(e as Error).message}) — chain state is correct, ERP missed it`,
-        );
-      }
+    // Tag every order in this tick with the same anchor.
+    for (const s of lockedSlots) {
+      s.order.audit_anchor_index = audit.details.chain.anchorIndex;
+      s.order.audit_anchor_tx = audit.details.chain.txHash;
     }
+  }
+
+  // ── Phase D — Odoo writeback (parallel, one create call per order) ───
+  if (canWriteBack && lockedSlots.length > 0) {
+    console.log(
+      `\n[buyer] phase D · writeback ${lockedSlots.length} PO(s) to ${connector.id} (parallel)…`,
+    );
+    await Promise.all(
+      lockedSlots.map(async (s) => {
+        try {
+          const placed = await connector.pushOrder!({
+            sku: s.winner!.sku,
+            quantity: s.winner!.quantity,
+            unit_price_usd: s.winner!.unit_price_usd,
+            total_usd: s.winner!.total_usd,
+            seller_ens: s.winner!.source_ens ?? "unknown",
+            seller_address: s.winner!.seller_address,
+            escrow_tx: s.escrow!.txHash,
+            escrow_order_id: s.escrow!.orderId,
+            audit_anchor_index: s.order.audit_anchor_index ?? undefined,
+            at: new Date().toISOString(),
+          });
+          s.order.erp_po_id = placed.id;
+          s.order.erp_po_url = placed.url ?? null;
+          console.log(
+            `[buyer]   → ✓ ${s.need.sku} → ${connector.id} PO ${placed.id}${placed.url ? ` · ${placed.url}` : ""}`,
+          );
+        } catch (e) {
+          console.log(
+            `[buyer]   ⚠ writeback ${s.need.sku} failed: ${(e as Error).message}`,
+          );
+        }
+      }),
+    );
   }
 
   console.log(`\n[buyer] tick complete ✓`);
