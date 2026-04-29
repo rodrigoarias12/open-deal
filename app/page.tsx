@@ -538,7 +538,7 @@ export default function Landing() {
             for understanding the flow without spending gas. On the right, the
             artifacts of the most recent <em>real</em> tick — the same pipeline,
             but on Sepolia, on 0G Galileo, and into a real Odoo instance, fired
-            unattended by a Vercel cron every six hours.
+            unattended by a Vercel cron every day.
           </p>
 
           <div className="demo-dual-grid">

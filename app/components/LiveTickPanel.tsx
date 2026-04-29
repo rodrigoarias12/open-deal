@@ -86,7 +86,7 @@ export function LiveTickPanel() {
   return (
     <div className="livetick">
       <div className="livetick-head">
-        <span className="livetick-badge">LIVE · CRON · 0 */6 * * *</span>
+        <span className="livetick-badge">LIVE · CRON · 0 12 * * *</span>
         <span className="livetick-when">
           {loading
             ? "loading…"
