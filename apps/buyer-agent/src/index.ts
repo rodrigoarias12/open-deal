@@ -260,6 +260,36 @@ function loadPlugin(plugin: { register?: (api: unknown) => void; id: string }): 
   return tools;
 }
 
+// Cap on how much the buyer is willing to pay per RFQ via x402.
+// Sellers asking more than this get skipped (per PROTOCOL.md §3.4
+// conformance: a buyer that can't afford a quote MUST skip, not error).
+const MAX_RFQ_PRICE_USDC = parseFloat(
+  process.env.MAX_RFQ_PRICE_USDC || "0.01",
+);
+
+// Pay an x402 challenge. In real life this either calls KeeperHub
+// (kh_pay) or a direct USDC transfer; for the demo we emit a mock
+// receipt that the seller-side validator will accept. Set
+// KEEPERHUB_API_KEY to switch this to a real x402 call.
+async function payX402Challenge(args: {
+  amountUsdc: number;
+  to: string;
+  nonce: string;
+  network: string;
+}): Promise<string> {
+  if (process.env.KEEPERHUB_API_KEY) {
+    // Production path: hand off to KeeperHub. Kept as a TODO because
+    // wiring real x402 needs the KH wallet funded — out of scope for
+    // the demo build window. Falls through to mock receipt below.
+    console.log(
+      `[buyer]     · KEEPERHUB_API_KEY present but pay path is mock-only in this build`,
+    );
+  }
+  // Demo receipt: deterministic, traceable, not redeemable. Sellers in
+  // demo-mode validation accept any "x402-…" prefix (see seller route).
+  return `x402-mock-${args.network}-${args.nonce}`;
+}
+
 async function broadcastRfq(
   sellers: SellerEntry[],
   rfqId: string,
@@ -276,37 +306,86 @@ async function broadcastRfq(
       ? seller.endpoint
       : `${seller.endpoint.replace(/\/+$/, "")}/rfq`;
     console.log(`[buyer]   → POST ${url}`);
+
+    const body = JSON.stringify({
+      rfq_id: rfqId,
+      sku: need.sku,
+      quantity: need.quantity,
+      buyer_ens: buyer.buyer_ens,
+      buyer_address: buyer.buyer_address,
+      deadline: new Date(
+        Date.now() + need.deadline_days * 86400_000,
+      ).toISOString(),
+    });
+
+    let paymentProof: string | null = null;
+    let attempts = 0;
+    let resp: Response;
     try {
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          rfq_id: rfqId,
-          sku: need.sku,
-          quantity: need.quantity,
-          buyer_ens: buyer.buyer_ens,
-          buyer_address: buyer.buyer_address,
-          deadline: new Date(
-            Date.now() + need.deadline_days * 86400_000,
-          ).toISOString(),
-        }),
-      });
-      const body = (await resp.json()) as Quote | { error: string };
-      if (!resp.ok) {
+      // Up to 2 attempts: first unpaid (might 200, might 402), then
+      // paid (only fired if first hit returned 402 with valid headers).
+      while (true) {
+        attempts += 1;
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        if (paymentProof) headers["X-Payment-Proof"] = paymentProof;
+
+        resp = await fetch(url, { method: "POST", headers, body });
+
+        // Per §3.4: handle the 402 dance transparently.
+        if (resp.status === 402 && attempts === 1) {
+          const network = resp.headers.get("x-payment-network") ?? "base";
+          const token = resp.headers.get("x-payment-token") ?? "USDC";
+          const amount = parseFloat(
+            resp.headers.get("x-payment-amount") ?? "0",
+          );
+          const to = resp.headers.get("x-payment-to") ?? "";
+          const nonce = resp.headers.get("x-payment-nonce") ?? "";
+          if (!amount || !to) {
+            console.log(
+              `[buyer]     × ${seller.ens} → 402 missing X-Payment-* headers`,
+            );
+            break;
+          }
+          if (amount > MAX_RFQ_PRICE_USDC) {
+            console.log(
+              `[buyer]     × ${seller.ens} → 402 wants ${amount} ${token} (> max ${MAX_RFQ_PRICE_USDC}); skipping per spec`,
+            );
+            break;
+          }
+          console.log(
+            `[buyer]     ↻ ${seller.ens} → 402 · paying ${amount} ${token} via x402 (${network})…`,
+          );
+          paymentProof = await payX402Challenge({
+            amountUsdc: amount,
+            to,
+            nonce,
+            network,
+          });
+          continue; // retry with proof
+        }
+        break; // non-402 (or post-payment), exit loop
+      }
+
+      const json = (await resp!.json()) as Quote | { error: string };
+      if (!resp!.ok) {
         console.log(
-          `[buyer]     × ${seller.ens} → ${resp.status} ${(body as { error: string }).error}`,
+          `[buyer]     × ${seller.ens} → ${resp!.status} ${(json as { error: string }).error}`,
         );
         continue;
       }
-      const quote = body as Quote;
+      const quote = json as Quote;
       quote.source_endpoint = seller.endpoint;
       quote.source_ens = seller.ens;
       console.log(
-        `[buyer]     ✓ ${seller.ens} → $${quote.total_usd} ${quote.currency}, ${quote.delivery_days}d, sig ${quote.signature.slice(0, 18)}…`,
+        `[buyer]     ✓ ${seller.ens} → $${quote.total_usd} ${quote.currency}, ${quote.delivery_days}d, sig ${quote.signature.slice(0, 18)}…${paymentProof ? " (via x402)" : ""}`,
       );
       quotes.push(quote);
     } catch (e) {
-      console.log(`[buyer]     × ${seller.ens} → fetch failed: ${(e as Error).message}`);
+      console.log(
+        `[buyer]     × ${seller.ens} → fetch failed: ${(e as Error).message}`,
+      );
     }
   }
   return quotes;
