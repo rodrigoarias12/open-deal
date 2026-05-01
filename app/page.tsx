@@ -1,6 +1,7 @@
 import { AuditList } from "./components/AuditList";
 import { Demo } from "./components/Demo";
 import { FAQ } from "./components/FAQ";
+import { LiveTickPanel } from "./components/LiveTickPanel";
 import { Loop } from "./components/Loop";
 import { Topbar } from "./components/Topbar";
 import { AssemblyLineV2 } from "./demo12/_components/AssemblyLineV2";
@@ -16,7 +17,9 @@ import {
   PILLARS,
   PLUGINS,
   PROJECT_DEAL,
+  SETTLEMENT_MODES,
   SPONSORS,
+  STACK_AGNOSTIC,
   VERTICALS,
   WAITLIST,
 } from "./lib/landing-data";
@@ -38,29 +41,31 @@ export default function Landing() {
             <span>ETHGlobal Open Agents · Apr 24 — May 6, 2026</span>
           </div>
           <h1 style={{ textAlign: "center", margin: "0 auto 28px" }}>
-            Agents
+            One spec.
             <br />
-            that run
+            Any stack.
             <br />
-            <span className="em">the books.</span>
+            <span className="em">Agents trading.</span>
           </h1>
           <p
             className="hero-sub"
-            style={{ margin: "0 auto 40px", maxWidth: 720, textAlign: "center" }}
+            style={{ margin: "0 auto 40px", maxWidth: 760, textAlign: "center" }}
           >
-            Buyer and seller agents — each with an ENS identity, an onchain policy, and an
-            audit anchor on 0G. Two autonomous parties trading B2B, with receipts. Powered by
-            the{" "}
             <span className="em-link">
               <a
                 href="https://github.com/rodrigoarias12/open-deal/blob/main/PROTOCOL.md"
                 target="_blank"
                 rel="noreferrer"
               >
-                Open Deal protocol
+                Open Deal
               </a>
             </span>{" "}
-            — the framework Anthropic&rsquo;s Project Deal said doesn&rsquo;t exist yet.
+            is a 5-piece wire protocol for autonomous B2B procurement — ENS
+            discovery, content-addressed catalogs, signed RFQ + quote, onchain
+            escrow, audit anchor on 0G. Bring your ERP. Bring your commerce
+            backend. Write one ~100-line adapter — your agent&rsquo;s on the
+            network. The framework Anthropic&rsquo;s Project Deal said
+            doesn&rsquo;t exist yet.
           </p>
 
           <AssemblyLineV2 />
@@ -87,14 +92,24 @@ export default function Landing() {
             className="hero-ctas"
             style={{ justifyContent: "center", marginTop: 36, marginBottom: 0 }}
           >
-            <a className="btn btn-primary" href="/sell">
-              sell on the network <span className="btn-arrow">→</span>
+            <a
+              className="btn btn-primary"
+              href="https://github.com/rodrigoarias12/open-deal/blob/main/IMPLEMENTERS.md"
+              target="_blank"
+              rel="noreferrer"
+            >
+              implement Open Deal <span className="btn-arrow">→</span>
             </a>
-            <a className="btn" href="/dashboard">
-              buyer dashboard <span className="btn-arrow">→</span>
+            <a
+              className="btn"
+              href="https://github.com/rodrigoarias12/open-deal/blob/main/PROTOCOL.md"
+              target="_blank"
+              rel="noreferrer"
+            >
+              read the spec <span className="btn-arrow">→</span>
             </a>
-            <a className="btn" href="#framework">
-              the framework <span className="btn-arrow">→</span>
+            <a className="btn" href="#demo">
+              watch it run <span className="btn-arrow">→</span>
             </a>
           </div>
         </div>
@@ -158,7 +173,7 @@ export default function Landing() {
             <div className="precedent-row precedent-head">
               <div>Axis</div>
               <div>Anthropic Project Deal</div>
-              <div>Agentic ERP</div>
+              <div>Open Deal</div>
             </div>
             {PROJECT_DEAL.comparison.map((row) => (
               <div className="precedent-row" key={row.axis}>
@@ -275,16 +290,269 @@ export default function Landing() {
         </div>
       </section>
 
+      <section id="stack-agnostic">
+        <div className="container">
+          <div className="section-tag">stack-agnostic</div>
+          <h2 className="section-title">
+            Bring your stack. The spec doesn&rsquo;t care.
+          </h2>
+          <p className="section-lede">
+            Open Deal is the part that doesn&rsquo;t change. Everything else
+            plugs in via a typed adapter you write in ~100 lines. Below: 4
+            buyer connectors and 4 seller connectors already shipped, plus 3
+            independent reference implementations against the same onchain
+            artifacts. Your stack different? Pick the closest connector as a
+            template.
+          </p>
+
+          <div className="stack-grid">
+            <div className="stack-col stack-col-buyer">
+              <div className="stack-col-head">
+                <div className="stack-col-eyebrow">buyer side</div>
+                <div className="stack-col-title">your data source</div>
+              </div>
+              <ul className="stack-list">
+                {STACK_AGNOSTIC.buyerSide.map((row) => (
+                  <li key={row.label} className={`stack-item stack-item-${row.status}`}>
+                    {row.href ? (
+                      <a href={row.href} target="_blank" rel="noreferrer">
+                        <span className="stack-label">{row.label}</span>
+                        <span className="stack-meta">
+                          {row.status === "real" ? "✓ real" : row.status === "stub" ? "⏳ stub" : "—"}
+                          {row.loc > 0 ? ` · ${row.loc} loc` : ""}
+                        </span>
+                      </a>
+                    ) : (
+                      <>
+                        <span className="stack-label">{row.label}</span>
+                        <span className="stack-meta">→ write 1 file</span>
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="stack-col stack-col-spec">
+              <div className="stack-col-head">
+                <div className="stack-col-eyebrow">open deal protocol v0.1</div>
+                <div className="stack-col-title">never changes</div>
+              </div>
+              <ul className="stack-spec-list">
+                <li>
+                  <span className="mono">discovery</span> — ENS subname + text records
+                </li>
+                <li>
+                  <span className="mono">catalog</span> — content-addressed JSON
+                </li>
+                <li>
+                  <span className="mono">RFQ + signed quote</span> — wire HTTP shape
+                </li>
+                <li>
+                  <span className="mono">escrow</span> — 5 onchain transitions
+                </li>
+                <li>
+                  <span className="mono">audit</span> — record + cidRoot anchor
+                </li>
+              </ul>
+              <a
+                href="https://github.com/rodrigoarias12/open-deal/blob/main/PROTOCOL.md"
+                target="_blank"
+                rel="noreferrer"
+                className="stack-spec-cta"
+              >
+                read PROTOCOL.md →
+              </a>
+            </div>
+
+            <div className="stack-col stack-col-seller">
+              <div className="stack-col-head">
+                <div className="stack-col-eyebrow">seller side</div>
+                <div className="stack-col-title">your commerce backend</div>
+              </div>
+              <ul className="stack-list">
+                {STACK_AGNOSTIC.sellerSide.map((row) => (
+                  <li key={row.label} className={`stack-item stack-item-${row.status}`}>
+                    {row.href ? (
+                      <a href={row.href} target="_blank" rel="noreferrer">
+                        <span className="stack-label">{row.label}</span>
+                        <span className="stack-meta">
+                          {row.status === "real" ? "✓ real" : row.status === "stub" ? "⏳ stub" : "—"}
+                          {row.loc > 0 ? ` · ${row.loc} loc` : ""}
+                        </span>
+                      </a>
+                    ) : (
+                      <>
+                        <span className="stack-label">{row.label}</span>
+                        <span className="stack-meta">→ write 1 file</span>
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <div className="stack-impls">
+            <div className="stack-impls-label">independent implementations of the spec:</div>
+            <div className="stack-impls-row">
+              {STACK_AGNOSTIC.implementations.map((impl) => (
+                <a
+                  key={impl.label}
+                  href={impl.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`stack-impl stack-impl-${impl.status}`}
+                >
+                  <span className="stack-impl-label">{impl.label}</span>
+                  {impl.loc > 0 && (
+                    <span className="stack-impl-loc">{impl.loc} loc</span>
+                  )}
+                </a>
+              ))}
+            </div>
+          </div>
+
+          <div className="stack-cta">
+            <a
+              className="btn btn-primary"
+              href="https://github.com/rodrigoarias12/open-deal/blob/main/IMPLEMENTERS.md"
+              target="_blank"
+              rel="noreferrer"
+            >
+              implement Open Deal in your stack <span className="btn-arrow">→</span>
+            </a>
+            <span className="stack-cta-note">
+              AX-first guide — feed it to Claude / GPT, get a conformant adapter back
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section id="settlement">
+        <div className="container">
+          <div className="section-tag">two settlement modes</div>
+          <h2
+            className="section-title"
+            style={{ textAlign: "center", margin: "0 auto 24px", maxWidth: 880 }}
+          >
+            B2B procurement isn&rsquo;t the only shape. The spec covers{" "}
+            <span className="em">both.</span>
+          </h2>
+          <p
+            className="section-lede"
+            style={{ textAlign: "center", margin: "0 auto 56px", maxWidth: 720 }}
+          >
+            Heavy multi-step procurement and atomic agent-to-agent purchases
+            are different transactions, with different latency, audit and
+            dispute requirements. Open Deal v0.1 declares both modes and lets
+            sellers advertise either or both via a single ENS text record.
+          </p>
+
+          <div className="settle-grid">
+            {SETTLEMENT_MODES.map((m) => (
+              <div key={m.id} className={`settle-card settle-card-${m.id}`}>
+                <div className="settle-head">
+                  <span className={`settle-badge settle-badge-${m.status}`}>
+                    {m.badge}
+                  </span>
+                  <span className="settle-status">
+                    {m.status === "shipped" ? "✓ shipped" : "⏳ spec-complete · impl pending"}
+                  </span>
+                </div>
+                <h3 className="settle-title">{m.title}</h3>
+                <p className="settle-tag">{m.tagline}</p>
+
+                <dl className="settle-attrs">
+                  <div>
+                    <dt>use case</dt>
+                    <dd>{m.useCase}</dd>
+                  </div>
+                  <div>
+                    <dt>settlement</dt>
+                    <dd>{m.settlement}</dd>
+                  </div>
+                  <div>
+                    <dt>latency</dt>
+                    <dd className="mono">{m.latency}</dd>
+                  </div>
+                  <div>
+                    <dt>audit</dt>
+                    <dd>{m.audit}</dd>
+                  </div>
+                  <div>
+                    <dt>disputes</dt>
+                    <dd>{m.disputes}</dd>
+                  </div>
+                </dl>
+
+                <div className="settle-examples-label">examples</div>
+                <ul className="settle-examples">
+                  {m.examples.map((ex) => (
+                    <li key={ex}>{ex}</li>
+                  ))}
+                </ul>
+
+                <a
+                  className="settle-link"
+                  href={m.specRef}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  read PROTOCOL.md §{m.id === "escrow" ? "4.1" : "4.2"} →
+                </a>
+              </div>
+            ))}
+          </div>
+
+          <p
+            className="section-lede"
+            style={{ textAlign: "center", margin: "48px auto 0", maxWidth: 720 }}
+          >
+            <span className="mono" style={{ color: "var(--accent)" }}>
+              procurement.settlement-modes = &quot;escrow.v1,direct.v1&quot;
+            </span>
+            <br />
+            <span style={{ fontSize: "0.95rem", opacity: 0.8 }}>
+              one ENS text record · sellers advertise either or both · buyers MAY require a specific mode in the RFQ
+            </span>
+          </p>
+        </div>
+      </section>
+
       <section id="demo">
         <div className="container">
           <div className="section-tag">live demo</div>
-          <h2 className="section-title">Run a buyer tick. Watch it think.</h2>
-          <p className="section-lede">
-            Replays a recorded buyer-agent run from a real fixture. No wallet required. The
-            pipeline is the same code path as production — Odoo → ENS RFQ → Claude → policy gate →
-            Sepolia escrow → 0G anchor.
+          <h2
+            className="section-title"
+            style={{ textAlign: "center", margin: "0 auto 24px", maxWidth: 880 }}
+          >
+            Two views.{" "}
+            <span className="em">One pipeline.</span>
+          </h2>
+          <p
+            className="section-lede"
+            style={{ textAlign: "center", margin: "0 auto 56px", maxWidth: 760 }}
+          >
+            On the left, an animated replay of the buyer-agent loop — useful
+            for understanding the flow without spending gas. On the right, the
+            artifacts of the most recent <em>real</em> tick — the same pipeline,
+            but on Sepolia, on 0G Galileo, and into a real Odoo instance, fired
+            unattended by a Vercel cron every day.
           </p>
-          <Demo />
+
+          <div className="demo-dual-grid">
+            <div className="demo-dual-left">
+              <div className="demo-dual-eyebrow">animated · replay · safe</div>
+              <Demo />
+            </div>
+            <div className="demo-dual-right">
+              <div className="demo-dual-eyebrow accent">
+                onchain · real · last run
+              </div>
+              <LiveTickPanel />
+            </div>
+          </div>
         </div>
       </section>
 

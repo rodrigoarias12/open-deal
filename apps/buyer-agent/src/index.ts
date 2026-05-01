@@ -1,17 +1,17 @@
 import "dotenv/config";
 import { readFile } from "node:fs/promises";
 import { Contract, JsonRpcProvider, Wallet, keccak256, parseEther, toUtf8Bytes } from "ethers";
-import policyPlugin from "../../../plugins/policy-from-ens/src/index.js";
-import auditPlugin from "../../../plugins/audit-to-0g/src/index.js";
-import { pickBuyerConnector } from "../../../src/connectors/buyer/factory.js";
-import { TelegramApprover, type ApprovalResult } from "../../../src/notify/telegram.js";
-import { readHistoryFrom0G } from "./history-from-0g.js";
+import policyPlugin from "../../../plugins/policy-from-ens/src/index";
+import auditPlugin from "../../../plugins/audit-to-0g/src/index";
+import { pickBuyerConnector } from "../../../src/connectors/buyer/factory";
+import { TelegramApprover, type ApprovalResult } from "../../../src/notify/telegram";
+import { readHistoryFrom0G } from "./history-from-0g";
 import {
   loadCatalogFromUri,
   buildSkuIndex,
   type IndexedSeller,
-} from "../../../src/catalog/loader.js";
-import type { Catalog } from "../../../src/connectors/seller/types.js";
+} from "../../../src/catalog/loader";
+import type { Catalog } from "../../../src/connectors/seller/types";
 
 interface Need {
   sku: string;
@@ -132,7 +132,19 @@ async function lockEscrow(args: {
   };
 }
 
-async function readNeedsFromConnector(buyer: BuyerConfig): Promise<Need[]> {
+async function readNeedsFromConnector(
+  buyer: BuyerConfig,
+): Promise<{
+  needs: Need[];
+  // The same connector instance is returned so the caller can write
+  // resolved orders back to it (see pushOrder closing the loop).
+  connector: Awaited<ReturnType<typeof pickBuyerConnector>>;
+  // Whether the needs returned came from the connector (true) or from
+  // the fallback fixture (false). pushOrder is only meaningful in the
+  // first case — there's no point writing back to a connector that
+  // didn't see the need in the first place.
+  fromConnector: boolean;
+}> {
   const connector = await pickBuyerConnector();
   console.log(`[buyer] connector: ${connector.id} — ${connector.name}`);
   try {
@@ -144,20 +156,24 @@ async function readNeedsFromConnector(buyer: BuyerConfig): Promise<Need[]> {
           `[buyer]     - ${item.sku} qty=${item.current_stock ?? "?"} order=${item.quantity}${item.name ? ` "${item.name}"` : ""}`,
         );
       }
-      return items.map((it) => ({
-        sku: it.sku,
-        quantity: it.quantity,
-        max_unit_price_usd: it.max_unit_price_usd ?? 100,
-        deadline_days: it.deadline_days,
-        reason: it.reason,
-      }));
+      return {
+        connector,
+        fromConnector: true,
+        needs: items.map((it) => ({
+          sku: it.sku,
+          quantity: it.quantity,
+          max_unit_price_usd: it.max_unit_price_usd ?? 100,
+          deadline_days: it.deadline_days,
+          reason: it.reason,
+        })),
+      };
     }
     console.log(`[buyer]   (${connector.id} returned 0 items — falling back to fixture needs)`);
   } catch (e) {
     console.log(`[buyer]   ⚠ connector error: ${(e as Error).message} — falling back to fixture`);
   }
   console.log(`[buyer] using fixture needs from needs.json`);
-  return buyer.needs;
+  return { connector, fromConnector: false, needs: buyer.needs };
 }
 
 async function resolveSellers(
@@ -315,6 +331,36 @@ function loadPlugin(plugin: { register?: (api: unknown) => void; id: string }): 
   return tools;
 }
 
+// Cap on how much the buyer is willing to pay per RFQ via x402.
+// Sellers asking more than this get skipped (per PROTOCOL.md §3.4
+// conformance: a buyer that can't afford a quote MUST skip, not error).
+const MAX_RFQ_PRICE_USDC = parseFloat(
+  process.env.MAX_RFQ_PRICE_USDC || "0.01",
+);
+
+// Pay an x402 challenge. In real life this either calls KeeperHub
+// (kh_pay) or a direct USDC transfer; for the demo we emit a mock
+// receipt that the seller-side validator will accept. Set
+// KEEPERHUB_API_KEY to switch this to a real x402 call.
+async function payX402Challenge(args: {
+  amountUsdc: number;
+  to: string;
+  nonce: string;
+  network: string;
+}): Promise<string> {
+  if (process.env.KEEPERHUB_API_KEY) {
+    // Production path: hand off to KeeperHub. Kept as a TODO because
+    // wiring real x402 needs the KH wallet funded — out of scope for
+    // the demo build window. Falls through to mock receipt below.
+    console.log(
+      `[buyer]     · KEEPERHUB_API_KEY present but pay path is mock-only in this build`,
+    );
+  }
+  // Demo receipt: deterministic, traceable, not redeemable. Sellers in
+  // demo-mode validation accept any "x402-…" prefix (see seller route).
+  return `x402-mock-${args.network}-${args.nonce}`;
+}
+
 async function broadcastRfq(
   sellers: SellerEntry[],
   rfqId: string,
@@ -331,37 +377,86 @@ async function broadcastRfq(
       ? seller.endpoint
       : `${seller.endpoint.replace(/\/+$/, "")}/rfq`;
     console.log(`[buyer]   → POST ${url}`);
+
+    const body = JSON.stringify({
+      rfq_id: rfqId,
+      sku: need.sku,
+      quantity: need.quantity,
+      buyer_ens: buyer.buyer_ens,
+      buyer_address: buyer.buyer_address,
+      deadline: new Date(
+        Date.now() + need.deadline_days * 86400_000,
+      ).toISOString(),
+    });
+
+    let paymentProof: string | null = null;
+    let attempts = 0;
+    let resp: Response;
     try {
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          rfq_id: rfqId,
-          sku: need.sku,
-          quantity: need.quantity,
-          buyer_ens: buyer.buyer_ens,
-          buyer_address: buyer.buyer_address,
-          deadline: new Date(
-            Date.now() + need.deadline_days * 86400_000,
-          ).toISOString(),
-        }),
-      });
-      const body = (await resp.json()) as Quote | { error: string };
-      if (!resp.ok) {
+      // Up to 2 attempts: first unpaid (might 200, might 402), then
+      // paid (only fired if first hit returned 402 with valid headers).
+      while (true) {
+        attempts += 1;
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        if (paymentProof) headers["X-Payment-Proof"] = paymentProof;
+
+        resp = await fetch(url, { method: "POST", headers, body });
+
+        // Per §3.4: handle the 402 dance transparently.
+        if (resp.status === 402 && attempts === 1) {
+          const network = resp.headers.get("x-payment-network") ?? "base";
+          const token = resp.headers.get("x-payment-token") ?? "USDC";
+          const amount = parseFloat(
+            resp.headers.get("x-payment-amount") ?? "0",
+          );
+          const to = resp.headers.get("x-payment-to") ?? "";
+          const nonce = resp.headers.get("x-payment-nonce") ?? "";
+          if (!amount || !to) {
+            console.log(
+              `[buyer]     × ${seller.ens} → 402 missing X-Payment-* headers`,
+            );
+            break;
+          }
+          if (amount > MAX_RFQ_PRICE_USDC) {
+            console.log(
+              `[buyer]     × ${seller.ens} → 402 wants ${amount} ${token} (> max ${MAX_RFQ_PRICE_USDC}); skipping per spec`,
+            );
+            break;
+          }
+          console.log(
+            `[buyer]     ↻ ${seller.ens} → 402 · paying ${amount} ${token} via x402 (${network})…`,
+          );
+          paymentProof = await payX402Challenge({
+            amountUsdc: amount,
+            to,
+            nonce,
+            network,
+          });
+          continue; // retry with proof
+        }
+        break; // non-402 (or post-payment), exit loop
+      }
+
+      const json = (await resp!.json()) as Quote | { error: string };
+      if (!resp!.ok) {
         console.log(
-          `[buyer]     × ${seller.ens} → ${resp.status} ${(body as { error: string }).error}`,
+          `[buyer]     × ${seller.ens} → ${resp!.status} ${(json as { error: string }).error}`,
         );
         continue;
       }
-      const quote = body as Quote;
+      const quote = json as Quote;
       quote.source_endpoint = seller.endpoint;
       quote.source_ens = seller.ens;
       console.log(
-        `[buyer]     ✓ ${seller.ens} → $${quote.total_usd} ${quote.currency}, ${quote.delivery_days}d, sig ${quote.signature.slice(0, 18)}…`,
+        `[buyer]     ✓ ${seller.ens} → $${quote.total_usd} ${quote.currency}, ${quote.delivery_days}d, sig ${quote.signature.slice(0, 18)}…${paymentProof ? " (via x402)" : ""}`,
       );
       quotes.push(quote);
     } catch (e) {
-      console.log(`[buyer]     × ${seller.ens} → fetch failed: ${(e as Error).message}`);
+      console.log(
+        `[buyer]     × ${seller.ens} → fetch failed: ${(e as Error).message}`,
+      );
     }
   }
   return quotes;
@@ -376,7 +471,38 @@ function pickWinner(need: Need, quotes: Quote[]): Quote | null {
   return priced[0];
 }
 
-async function main(): Promise<void> {
+/**
+ * One resolved order — the structured equivalent of the per-need log lines.
+ * Returned from runProcurementTick so callers (CLI, /api/procurement-tick,
+ * Vercel cron, dashboard) can render the result without re-parsing logs.
+ */
+export interface ResolvedOrder {
+  sku: string;
+  quantity: number;
+  winner_ens: string | null;
+  winner_total_usd: number | null;
+  escrow_tx: string | null;
+  escrow_explorer_url: string | null;
+  escrow_order_id: string | null;
+  audit_anchor_index: string | null;
+  audit_anchor_tx: string | null;
+  erp_po_id: string | null;
+  erp_po_url: string | null;
+  skipped_reason: string | null;
+}
+
+export interface ProcurementTickResult {
+  at: string;
+  buyer_ens: string;
+  connector_id: string;
+  connector_name: string;
+  needs_count: number;
+  orders: ResolvedOrder[];
+}
+
+export async function runProcurementTick(): Promise<ProcurementTickResult> {
+  const orders: ResolvedOrder[] = [];
+
   if (!process.env.ZG_AUDIT_ANCHOR) {
     const anchor = JSON.parse(
       await readFile("contracts/AuditAnchor.deployment.json", "utf8"),
@@ -435,10 +561,14 @@ async function main(): Promise<void> {
 
   console.log(`[buyer] ${buyer.buyer} (${buyer.buyer_ens})`);
 
-  const needs = await readNeedsFromConnector(buyer);
+  const { needs, connector, fromConnector } = await readNeedsFromConnector(buyer);
   console.log(
     `[buyer] ${needs.length} pending need(s) · ${registry.sellers.length} seller subname(s) in registry`,
   );
+  const canWriteBack = fromConnector && typeof connector.pushOrder === "function";
+  if (canWriteBack) {
+    console.log(`[buyer]   ↺ writeback enabled — orders will be pushed back to ${connector.id}`);
+  }
 
   const ensRpc =
     process.env.MAINNET_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com";
@@ -466,140 +596,253 @@ async function main(): Promise<void> {
     throw new Error("plugins did not register expected tools");
   }
 
-  for (const need of needs) {
-    const rfqId = `rfq-${Date.now()}-${need.sku}`;
-    console.log(`\n[buyer] need: ${need.sku} x${need.quantity} (${need.reason})`);
+  // ── Pipeline structure (parallelized) ────────────────────────────────
+  //
+  //   Phase A — pre-flight (parallel)
+  //     N RFQs broadcast at once (each RFQ targeted by SKU index),
+  //     winners picked, patterns detected
+  //   Phase A2 — telegram approvals (serial, only triggered patterns)
+  //   Phase A3 — policy gate (parallel, read-only)
+  //   Phase B — escrow locks (serial — same wallet nonce, can't overlap)
+  //   Phase C — ONE batched audit upload to 0G covering all decisions
+  //   Phase D — Odoo writeback (parallel)
+  //
+  // Per-SKU intermediate state lives in `slots[]`, ordered to match `needs[]`.
+  type Slot = {
+    need: Need;
+    rfqId: string;
+    order: ResolvedOrder;
+    quotes: Quote[];
+    winner: Quote | null;
+    pattern: PatternSignal | null;
+    approval: ApprovalResult | null;
+    policySnapshot: unknown;
+    escrow: Awaited<ReturnType<typeof lockEscrow>> | null;
+  };
 
-    // SKU-targeted fan-out: only RFQ sellers whose catalog carries this
-    // SKU. Sellers without a published catalog OR with a fetch failure
-    // are still tried as a fallback (preserves backward-compat with
-    // self-hosted sellers that haven't set catalog-uri yet).
-    const indexed = skuIndex.get(need.sku) ?? [];
-    const indexedEnsSet = new Set(indexed.map((e) => e.seller.ens));
-    const fallback = sellers.filter(
-      (s) => !s.catalog_uri && !indexedEnsSet.has(s.ens),
-    );
-    const targets = [...indexed.map((e) => e.seller), ...fallback];
-    if (targets.length === 0) {
-      console.log(
-        `[buyer]   no seller carries SKU ${need.sku} (registry of ${sellers.length}, indexed ${catalogTotals.ok}) — skipping`,
+  const slots: Slot[] = needs.map((need) => ({
+    need,
+    rfqId: `rfq-${Date.now()}-${need.sku}`,
+    order: {
+      sku: need.sku,
+      quantity: need.quantity,
+      winner_ens: null,
+      winner_total_usd: null,
+      escrow_tx: null,
+      escrow_explorer_url: null,
+      escrow_order_id: null,
+      audit_anchor_index: null,
+      audit_anchor_tx: null,
+      erp_po_id: null,
+      erp_po_url: null,
+      skipped_reason: null,
+    },
+    quotes: [],
+    winner: null,
+    pattern: null,
+    approval: null,
+    policySnapshot: null,
+    escrow: null,
+  }));
+  for (const s of slots) orders.push(s.order);
+
+  // ── Phase A — RFQ + winner pick + pattern (parallel across SKUs) ──────
+  // Each slot picks its own RFQ targets via the SKU index built above —
+  // sellers whose published catalog carries this SKU, plus a fallback
+  // for sellers without a catalog (preserves backward-compat with
+  // self-hosted sellers that haven't set catalog-uri yet).
+  console.log(
+    `\n[buyer] phase A · broadcasting ${slots.length} RFQ(s) in parallel…`,
+  );
+  await Promise.all(
+    slots.map(async (s) => {
+      console.log(`[buyer] need: ${s.need.sku} x${s.need.quantity} (${s.need.reason})`);
+
+      const indexed = skuIndex.get(s.need.sku) ?? [];
+      const indexedEnsSet = new Set(indexed.map((e) => e.seller.ens));
+      const fallback = sellers.filter(
+        (sl) => !sl.catalog_uri && !indexedEnsSet.has(sl.ens),
       );
-      continue;
-    }
-    console.log(
-      `[buyer]   SKU index → ${indexed.length} match(es), ${fallback.length} no-catalog fallback(s) — RFQ targets: ${targets.length}/${sellers.length}`,
-    );
-    for (const t of indexed) {
-      const item = t.catalog.items.find((i) => i.sku === need.sku);
-      if (item) {
+      const targets = [...indexed.map((e) => e.seller), ...fallback];
+      if (targets.length === 0) {
         console.log(
-          `[buyer]     · ${t.seller.ens} carries ${need.sku} @ list $${item.unit_price_usd}/u (stock ${item.stock})`,
+          `[buyer]   no seller carries SKU ${s.need.sku} (registry of ${sellers.length}, indexed ${catalogTotals.ok}) — skipping`,
         );
+        s.order.skipped_reason = "no seller carries SKU";
+        return;
       }
-    }
-    console.log(`[buyer] broadcasting ${rfqId} to ${targets.length} seller(s)…`);
-
-    const quotes = await broadcastRfq(targets, rfqId, need, buyer);
-    if (quotes.length === 0) {
-      console.log(`[buyer] no quotes for ${need.sku} — skipping`);
-      continue;
-    }
-
-    const winner = pickWinner(need, quotes);
-    if (!winner) {
       console.log(
-        `[buyer] no quote within budget (max $${need.max_unit_price_usd}/u, ≤${need.deadline_days}d) — skipping`,
+        `[buyer]   SKU index → ${indexed.length} match(es), ${fallback.length} no-catalog fallback(s) — RFQ targets: ${targets.length}/${sellers.length}`,
       );
+      for (const t of indexed) {
+        const item = t.catalog.items.find((i) => i.sku === s.need.sku);
+        if (item) {
+          console.log(
+            `[buyer]     · ${t.seller.ens} carries ${s.need.sku} @ list $${item.unit_price_usd}/u (stock ${item.stock})`,
+          );
+        }
+      }
+      console.log(`[buyer] broadcasting ${s.rfqId} to ${targets.length} seller(s)…`);
+
+      const quotes = await broadcastRfq(targets, s.rfqId, s.need, buyer);
+      s.quotes = quotes;
+      if (quotes.length === 0) {
+        console.log(`[buyer] no quotes for ${s.need.sku} — skipping`);
+        s.order.skipped_reason = "no quotes received";
+        return;
+      }
+      const winner = pickWinner(s.need, quotes);
+      if (!winner) {
+        console.log(
+          `[buyer] no quote within budget for ${s.need.sku} (max $${s.need.max_unit_price_usd}/u, ≤${s.need.deadline_days}d) — skipping`,
+        );
+        s.order.skipped_reason = "no quote within budget";
+        return;
+      }
+      s.winner = winner;
+      s.order.winner_ens = winner.source_ens ?? null;
+      s.order.winner_total_usd = winner.total_usd;
+      console.log(
+        `[buyer] winner ${s.need.sku}: ${winner.source_ens} → $${winner.total_usd} ${winner.currency}, ${winner.delivery_days}d`,
+      );
+      s.pattern = detectPattern(
+        history.purchases,
+        s.need.sku,
+        winner.source_ens ?? "unknown",
+        winner.unit_price_usd,
+      );
+    }),
+  );
+
+  // ── Phase A2 — telegram approvals (serial, one prompt at a time) ──────
+  for (const s of slots) {
+    if (!s.winner || !s.pattern) continue;
+    if (!(s.pattern.is_recurring && s.pattern.is_better_deal)) {
+      console.log(`[buyer] pattern ${s.need.sku}: ${s.pattern.message}`);
       continue;
     }
-    console.log(
-      `[buyer] winner: ${winner.source_ens} → $${winner.total_usd} ${winner.currency}, ${winner.delivery_days}d`,
-    );
-
-    const pattern = detectPattern(
-      history.purchases,
-      need.sku,
-      winner.source_ens ?? "unknown",
-      winner.unit_price_usd,
-    );
-    let approval: ApprovalResult | null = null;
-    if (pattern.is_recurring && pattern.is_better_deal) {
-      console.log(`[buyer] 🚨 PATTERN TRIGGER — pinging human:`);
-      console.log(`[buyer]   ${pattern.message}`);
-      if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
-        const tg = new TelegramApprover({
-          token: process.env.TELEGRAM_BOT_TOKEN,
-          chatId: process.env.TELEGRAM_CHAT_ID,
-        });
-        console.log(`[buyer] sending approval request to Telegram…`);
-        approval = await tg.requestApproval({
-          title: `Mejor oferta para ${need.sku}`,
-          summary: pattern.message,
-          amount_usd: winner.total_usd,
-          timeoutMs: 90_000,
-        });
-        console.log(`[buyer]   → ${approval.approved ? "✅ APPROVED" : "✖ NOT APPROVED"} (${approval.reason})`);
-        if (!approval.approved) {
-          console.log(`[buyer] human did not approve — skipping ${need.sku}`);
-          continue;
-        }
-      } else {
-        console.log(`[buyer]   (TELEGRAM_BOT_TOKEN/CHAT_ID not set — skipping human prompt, auto-proceeding for demo)`);
+    console.log(`[buyer] 🚨 PATTERN TRIGGER (${s.need.sku}) — pinging human:`);
+    console.log(`[buyer]   ${s.pattern.message}`);
+    if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
+      const tg = new TelegramApprover({
+        token: process.env.TELEGRAM_BOT_TOKEN,
+        chatId: process.env.TELEGRAM_CHAT_ID,
+      });
+      console.log(`[buyer] sending approval request to Telegram (${s.need.sku})…`);
+      s.approval = await tg.requestApproval({
+        title: `Mejor oferta para ${s.need.sku}`,
+        summary: s.pattern.message,
+        amount_usd: s.winner.total_usd,
+        timeoutMs: 90_000,
+      });
+      console.log(
+        `[buyer]   → ${s.approval.approved ? "✅ APPROVED" : "✖ NOT APPROVED"} (${s.approval.reason})`,
+      );
+      if (!s.approval.approved) {
+        console.log(`[buyer] human did not approve — skipping ${s.need.sku}`);
+        s.order.skipped_reason = `human declined: ${s.approval.reason}`;
+        s.winner = null;
       }
     } else {
-      console.log(`[buyer] pattern: ${pattern.message}`);
+      console.log(
+        `[buyer]   (TELEGRAM_BOT_TOKEN/CHAT_ID not set — skipping human prompt, auto-proceeding for demo)`,
+      );
     }
+  }
 
-    console.log(`[buyer] policy gate via policy-from-ens…`);
-    const policy = (await policyCheck.execute("call-policy", {
-      action: "pay_carrier",
-      carrier_id: winner.seller_address,
-      amount_usd: String(winner.total_usd),
-      ens_name: buyer.buyer_ens,
-    })) as { details: { allowed: boolean; reason: string | null; policy: unknown } };
-    console.log(
-      `[buyer]   → allowed=${policy.details.allowed}, reason=${policy.details.reason ?? "ok"}`,
-    );
-    if (!policy.details.allowed) {
-      console.log(`[buyer] policy denied — skipping payment.`);
-      continue;
+  // ── Phase A3 — policy gate (parallel) ─────────────────────────────────
+  console.log(`\n[buyer] phase A3 · policy gate via policy-from-ens (parallel)…`);
+  await Promise.all(
+    slots.map(async (s) => {
+      if (!s.winner) return;
+      const policy = (await policyCheck.execute("call-policy", {
+        action: "pay_carrier",
+        carrier_id: s.winner.seller_address,
+        amount_usd: String(s.winner.total_usd),
+        ens_name: buyer.buyer_ens,
+      })) as { details: { allowed: boolean; reason: string | null; policy: unknown } };
+      console.log(
+        `[buyer]   ${s.need.sku} → allowed=${policy.details.allowed}${policy.details.reason ? `, reason=${policy.details.reason}` : ""}`,
+      );
+      s.policySnapshot = policy.details.policy;
+      if (!policy.details.allowed) {
+        s.order.skipped_reason = `policy denied: ${policy.details.reason ?? "unknown"}`;
+        s.winner = null;
+      }
+    }),
+  );
+
+  // ── Phase B — escrow locks (serial, same wallet nonce) ───────────────
+  const approvedSlots = slots.filter((s) => s.winner !== null);
+  console.log(
+    `\n[buyer] phase B · locking ${approvedSlots.length} escrow(s) on Sepolia (serial)…`,
+  );
+  for (const s of approvedSlots) {
+    if (!s.winner) continue;
+    console.log(`[buyer] locking funds for ${s.need.sku}…`);
+    try {
+      const escrowResult = await lockEscrow({
+        sellerAddress: s.winner.seller_address,
+        amountUsd: s.winner.total_usd,
+        sku: s.winner.sku,
+        quantity: s.winner.quantity,
+        deadlineDays: s.winner.delivery_days + 1,
+      });
+      s.escrow = escrowResult;
+      s.order.escrow_tx = escrowResult.txHash;
+      s.order.escrow_explorer_url = `https://sepolia.etherscan.io/tx/${escrowResult.txHash}`;
+      s.order.escrow_order_id = escrowResult.orderId;
+      console.log(
+        `[buyer]   → ${s.need.sku} order #${escrowResult.orderId} · locked ${escrowResult.amountEth} ETH · tx ${escrowResult.txHash.slice(0, 16)}…`,
+      );
+    } catch (e) {
+      console.log(`[buyer]   ⚠ escrow lock failed for ${s.need.sku}: ${(e as Error).message}`);
+      s.order.skipped_reason = `escrow lock failed: ${(e as Error).message}`;
+      s.winner = null;
     }
+  }
 
-    console.log(`[buyer] locking funds in ProcurementEscrow…`);
-    const escrowResult = await lockEscrow({
-      sellerAddress: winner.seller_address,
-      amountUsd: winner.total_usd,
-      sku: winner.sku,
-      quantity: winner.quantity,
-      deadlineDays: winner.delivery_days + 1,
-    });
+  // ── Phase C — single batched audit on 0G ─────────────────────────────
+  // Instead of one upload+anchor per SKU, we collect every decision into
+  // one record. One 0G Storage upload, one AuditAnchor.append() — all
+  // orders in this tick share the same anchor index. Saves ~30s per
+  // skipped audit. The decision is the unit of audit; the tick groups them.
+  const lockedSlots = slots.filter((s) => s.escrow !== null);
+  if (lockedSlots.length > 0) {
+    const tickId = `tick-${Date.now()}`;
     console.log(
-      `[buyer]   → order #${escrowResult.orderId}, locked ${escrowResult.amountEth} ETH (mock $${winner.total_usd}), tx ${escrowResult.txHash.slice(0, 16)}…`,
+      `\n[buyer] phase C · batched audit · ${lockedSlots.length} decision(s) → 0G in ONE upload…`,
     );
-    console.log(
-      `[buyer]   → explorer: https://sepolia.etherscan.io/tx/${escrowResult.txHash}`,
-    );
-
-    console.log(`[buyer] audit to 0G…`);
     const audit = (await recordAudit.execute("call-audit", {
       record: {
         at: new Date().toISOString(),
-        case: "agentic-erp-rfq-decision",
+        case: "agentic-erp-batched-tick",
+        schema: "procurement.audit.v1",
         buyer: buyer.buyer,
-        rfq_id: rfqId,
-        need,
-        quotes,
-        winner: { ens: winner.source_ens, total_usd: winner.total_usd },
-        pattern,
-        approval,
-        policy: policy.details.policy,
-        escrow: {
-          contract: escrowResult.address,
-          orderId: escrowResult.orderId,
-          amountEth: escrowResult.amountEth,
-          txHash: escrowResult.txHash,
-          chain: "sepolia",
-        },
+        buyer_ens: buyer.buyer_ens,
+        tick_id: tickId,
+        decisions: lockedSlots.map((s, idx) => ({
+          decision_index: idx,
+          rfq_id: s.rfqId,
+          need: s.need,
+          quotes: s.quotes,
+          winner: {
+            ens: s.winner!.source_ens,
+            total_usd: s.winner!.total_usd,
+            unit_price_usd: s.winner!.unit_price_usd,
+            delivery_days: s.winner!.delivery_days,
+          },
+          pattern: s.pattern,
+          approval: s.approval,
+          policy: s.policySnapshot,
+          escrow: {
+            contract: s.escrow!.address,
+            orderId: s.escrow!.orderId,
+            amountEth: s.escrow!.amountEth,
+            txHash: s.escrow!.txHash,
+            chain: "sepolia",
+          },
+        })),
       },
     })) as {
       details: {
@@ -608,14 +851,69 @@ async function main(): Promise<void> {
       };
     };
     console.log(
-      `[buyer]   → audit anchor #${audit.details.chain.anchorIndex} tx ${audit.details.chain.txHash.slice(0, 16)}…`,
+      `[buyer]   → audit anchor #${audit.details.chain.anchorIndex} tx ${audit.details.chain.txHash.slice(0, 16)}… (covers ${lockedSlots.length} order(s))`,
+    );
+    // Tag every order in this tick with the same anchor.
+    for (const s of lockedSlots) {
+      s.order.audit_anchor_index = audit.details.chain.anchorIndex;
+      s.order.audit_anchor_tx = audit.details.chain.txHash;
+    }
+  }
+
+  // ── Phase D — Odoo writeback (parallel, one create call per order) ───
+  if (canWriteBack && lockedSlots.length > 0) {
+    console.log(
+      `\n[buyer] phase D · writeback ${lockedSlots.length} PO(s) to ${connector.id} (parallel)…`,
+    );
+    await Promise.all(
+      lockedSlots.map(async (s) => {
+        try {
+          const placed = await connector.pushOrder!({
+            sku: s.winner!.sku,
+            quantity: s.winner!.quantity,
+            unit_price_usd: s.winner!.unit_price_usd,
+            total_usd: s.winner!.total_usd,
+            seller_ens: s.winner!.source_ens ?? "unknown",
+            seller_address: s.winner!.seller_address,
+            escrow_tx: s.escrow!.txHash,
+            escrow_order_id: s.escrow!.orderId,
+            audit_anchor_index: s.order.audit_anchor_index ?? undefined,
+            at: new Date().toISOString(),
+          });
+          s.order.erp_po_id = placed.id;
+          s.order.erp_po_url = placed.url ?? null;
+          console.log(
+            `[buyer]   → ✓ ${s.need.sku} → ${connector.id} PO ${placed.id}${placed.url ? ` · ${placed.url}` : ""}`,
+          );
+        } catch (e) {
+          console.log(
+            `[buyer]   ⚠ writeback ${s.need.sku} failed: ${(e as Error).message}`,
+          );
+        }
+      }),
     );
   }
 
   console.log(`\n[buyer] tick complete ✓`);
+
+  return {
+    at: new Date().toISOString(),
+    buyer_ens: buyer.buyer_ens,
+    connector_id: connector.id,
+    connector_name: connector.name,
+    needs_count: needs.length,
+    orders,
+  };
 }
 
-main().catch((e) => {
-  console.error("[buyer] failed:", e);
-  process.exit(1);
-});
+// CLI entry point: only auto-runs when invoked directly via tsx /
+// node — not when imported by /api/procurement-tick or tests.
+const isCli =
+  import.meta.url.endsWith("/buyer-agent/src/index.ts") &&
+  Boolean(process.argv[1]?.includes("buyer-agent"));
+if (isCli) {
+  runProcurementTick().catch((e) => {
+    console.error("[buyer] failed:", e);
+    process.exit(1);
+  });
+}

@@ -4,22 +4,54 @@
 Discovery on **ENS**. Escrow on **Sepolia**. Audit on **0G**. Autonomous payments via **KeeperHub**.
 The first open protocol for agent-mediated trade — already onchain, already running.
 
-Anthropic's [Project Deal](https://www.anthropic.com/features/project-deal) (Apr 2026)
-ran the closed, in-office, off-chain version — 69 employees, 186 deals, $4K transacted,
-46% would pay for it. Their own report named the gap:
+Anthropic's [Project Deal](https://www.anthropic.com/features/project-deal)
+(April 2026) ran the closed, in-office, off-chain version of this idea — 69
+employees, 186 deals, $4K transacted, 46% would pay for it. Their report named
+the gap:
 
-> *"Policy and legal frameworks around AI models that transact on our behalf simply
-> don't exist yet."*
+> *"Policy and legal frameworks around AI models that transact on our behalf
+> simply don't exist yet."*
 
-**Open Deal is that framework.** Three composable OpenClaw plugins (`policy-from-ens`,
-`audit-to-0g`, `keeperhub-rail`) plus two reference agents that exercise both sides
-of a real trade end-to-end.
+**Open Deal is that framework.** Five wire-level specs (discovery via ENS,
+content-addressed catalogs, signed RFQ + quote, onchain escrow, audit anchor on
+0G), three conformance levels (L1 discoverable / L2 settlement / L3 auditable),
+plus three composable OpenClaw plugins (`policy-from-ens`, `audit-to-0g`,
+`keeperhub-rail`) and reference adapters for the most common stacks on both
+sides of the trade.
 
-**Agentic ERP** is the first reference application built on Open Deal — autonomous
-B2B procurement: Odoo / Excel / SAP buyers discover Shopify / MercadoLibre / JSON
-sellers via ENS subnames, negotiate over HTTP, settle in escrow on Sepolia, anchor
-every decision on 0G Chain. The protocol is open; anyone can build a second
-implementation on either side.
+### Stack-agnostic by design
+
+The spec doesn't care what runs your books. Bring your ERP, bring your commerce
+backend, write one ~100-line adapter, and your agent's on the network.
+
+| Buyer-side connectors (real / stub) | Seller-side connectors (real / stub) |
+|---|---|
+| Odoo (JSON-RPC) ✓ | JSON catalog ✓ |
+| Excel (.xlsx) ✓ | Excel (.xlsx) ✓ |
+| CSV ✓ | Shopify ⏳ stub |
+| SAP (RFC / OData) ⏳ stub | MercadoLibre ⏳ stub |
+| Mock (in-memory) ✓ | Mock (in-memory) ✓ |
+
+Three independent reference implementations of the protocol ship in this repo:
+TypeScript buyer (`apps/buyer-agent`, 621 LOC), Python buyer (`apps/buyer-py`,
+379 LOC), and a hosted Vercel seller (`app/api/rfq`, ~200 LOC) — all hitting the
+same onchain artifacts, all interoperable.
+
+### AX-first documentation
+
+The protocol docs ([`PROTOCOL.md`](./PROTOCOL.md) +
+[`IMPLEMENTERS.md`](./IMPLEMENTERS.md)) are written for an LLM coding agent to
+read. Drop them in your IDE's context, point at your stack, and Claude / GPT /
+Cursor emits a conformant adapter. **The integration spec is the integration
+spec — no human handholding required.**
+
+→ Start here: **[`IMPLEMENTERS.md`](./IMPLEMENTERS.md)** — 30-minute conformance
+guide, L1/L2/L3 conformance tables, connector templates with LOC counts.
+
+**Agentic ERP** is the first reference B2B app built on Open Deal — Odoo /
+Excel / SAP buyers discover JSON / Shopify / MercadoLibre sellers via ENS
+subnames, negotiate over HTTP, settle in escrow on Sepolia, anchor every
+decision on 0G Chain. Anyone can build their own app on the same protocol.
 
 Built solo for [ETHGlobal Open Agents](https://ethglobal.com/events/openagents)
 (April 24 – May 6, 2026).

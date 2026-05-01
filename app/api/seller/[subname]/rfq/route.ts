@@ -106,16 +106,66 @@ export async function POST(
     });
   }
 
-  const [endpoint, catalogUri, sellerAddrRaw] = await Promise.all([
+  const [endpoint, catalogUri, sellerAddrRaw, rfqPriceRaw] = await Promise.all([
     resolver.getText("endpoint"),
     resolver.getText("catalog-uri"),
     resolver.getAddress(),
+    resolver.getText("procurement.rfq-price").catch(() => null),
   ]);
   if (!catalogUri) {
     return err(404, {
       error: `${subname} has no catalog-uri text record`,
       ens: `https://sepolia.app.ens.domains/${subname}`,
     });
+  }
+
+  // ── 402 dance per PROTOCOL.md §3.4 ────────────────────────────────────
+  // If the seller has set procurement.rfq-price (decimal USDC), require
+  // a payment proof header. Demo-mode validation: any non-empty
+  // X-Payment-Proof of the form "x402-mock-<nonce>" or "0x<txhash>" is
+  // accepted. In a production rail (KeeperHub / Coinbase x402) the seller
+  // would verify the proof matches an onchain transfer matching the
+  // nonce + amount + recipient.
+  const rfqPrice = parseFloat(rfqPriceRaw ?? "0");
+  if (rfqPriceRaw && rfqPrice > 0) {
+    const paymentProof = req.headers.get("x-payment-proof");
+    if (!paymentProof || paymentProof.trim().length < 8) {
+      const nonce = `${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
+      const sellerWallet = sellerAddrRaw ?? "0x0";
+      return new NextResponse(
+        JSON.stringify({
+          error: "rfq requires payment",
+          schema: "procurement.rfq.v1",
+          amount_usdc: rfqPrice.toFixed(3),
+          rail: "x402",
+          spec: "PROTOCOL.md#34",
+          retry_with_header: "X-Payment-Proof",
+        }),
+        {
+          status: 402,
+          headers: {
+            "Content-Type": "application/json",
+            "X-Payment-Network": "base",
+            "X-Payment-Token": "USDC",
+            "X-Payment-Amount": rfqPrice.toFixed(3),
+            "X-Payment-To": sellerWallet,
+            "X-Payment-Nonce": nonce,
+            "X-Spec": "procurement.settlement.v1/direct.v1",
+          },
+        },
+      );
+    }
+    // Light validation: the proof must be present and look like a tx
+    // hash or x402 mock receipt. Production validators check the chain.
+    if (
+      !paymentProof.startsWith("0x") &&
+      !paymentProof.startsWith("x402-")
+    ) {
+      return err(400, {
+        error: "X-Payment-Proof must be 0x… (tx hash) or x402-… (rail receipt)",
+        spec: "PROTOCOL.md#34",
+      });
+    }
   }
 
   let catalog: Catalog;

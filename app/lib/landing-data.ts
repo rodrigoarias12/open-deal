@@ -341,8 +341,8 @@ export const PILLARS: Pillar[] = [
   },
   {
     num: "03",
-    title: "Outbound HTTP is autonomous.",
-    body: "Any URL the agent calls — paid oracles, sanctions checks, logistics quotes — is auto-paid in USDC by a Turnkey-custodied KeeperHub wallet on Base + Tempo. No 402 handshake to babysit, no human in the loop per call. The agent doesn't distinguish data from goods.",
+    title: "Agents pay each other for asking.",
+    body: "A seller can charge $0.001 USDC per RFQ via HTTP 402 — anti-spam economics for autonomous quote-shopping. The buyer agent's KeeperHub wallet auto-pays, retries, and gets the signed quote. No human in the loop per call. Same rail covers paid oracles, sanctions checks, logistics APIs.",
     mono: "x402 → keeperhub-rail",
     foot: "plugins/keeperhub-rail/",
   },
@@ -370,7 +370,7 @@ export const PLUGINS: Plugin[] = [
   {
     pkg: "@openagents/openclaw-keeperhub-rail",
     title: "keeperhub-rail",
-    body: "Autonomous x402 rail. Any outbound URL the agent hits gets paid in USDC by a Turnkey-custodied KeeperHub wallet on Base + Tempo. No human-in-the-loop per call.",
+    body: "Autonomous x402 rail. Sellers can price their RFQ endpoint (anti-spam: $0.001 USDC per quote request); buyers' Turnkey-custodied KeeperHub wallet on Base + Tempo handles the 402 retry transparently. Same rail for paid oracles, sanctions checks, logistics APIs.",
     tools: ["kh_pay", "kh_balance", "kh_fund_instructions"],
     src: "plugins/keeperhub-rail/",
   },
@@ -620,8 +620,16 @@ sha256: 4d8a5e2118293a2b…abe3
 
 export const FAQS: Faq[] = [
   {
-    q: "Is this an app or a framework?",
-    a: "Both. The framework is three OpenClaw plugins under <code>plugins/</code> — <code>policy-from-ens</code>, <code>audit-to-0g</code>, <code>keeperhub-rail</code>. Any OpenClaw agent can adopt them in one manifest. The buyer/seller agents under <code>apps/</code> are reference implementations: ~400 lines each, both consume the same three plugins. Same trust property, two domains.",
+    q: "Is this a product or a protocol?",
+    a: "A protocol with reference implementations. <code>PROTOCOL.md</code> v0.1 defines five wire-level specs and three conformance levels (L1 discoverable / L2 settlement / L3 auditable). To prove the spec is real, we ship two independent buyer implementations (TypeScript ~620 LOC + Python ~380 LOC) and a seller (TypeScript ~160 LOC) — all trading against the same ENS records, the same escrow contract, the same 0G anchor. The buyer/seller agents are <em>evidence</em>, not the product. The product is the spec.",
+  },
+  {
+    q: "How do I make my agent speak Open Deal?",
+    a: "Read <code><a href='https://github.com/rodrigoarias12/open-deal/blob/main/IMPLEMENTERS.md' target='_blank' rel='noreferrer'>IMPLEMENTERS.md</a></code>. It's written AX-first — feed it to Claude / GPT / Gemini and the agent can produce a conformant implementation in your stack with no human help. Pick a side (buyer or seller), pick your data source (ERP, spreadsheet, custom), write one ~100-LOC adapter against our typed connector interface, plug into the reference loop. Total: ~30 minutes for a clean stack.",
+  },
+  {
+    q: "Stack-agnostic? What stacks?",
+    a: "The protocol is the only thing that doesn't change. Buyer side ships connectors for Odoo, Excel, CSV, mock; SAP is a stub with the contract documented. Seller side ships JSON, Excel, mock; Shopify and MercadoLibre are stubs with the API shapes documented. Your stack different? Your adapter is one file. Look at the closest reference connector as a template and copy the pattern. The protocol layer never changes; everything else is plug-and-play.",
   },
   {
     q: "How does this relate to ERC-8004?",
@@ -629,7 +637,7 @@ export const FAQS: Faq[] = [
   },
   {
     q: "Who pays the gas? The endpoints?",
-    a: "Gas — the agent's hot wallet on Sepolia + 0G. Endpoints — KeeperHub. Every outbound HTTP call (price feeds, sanctions checks, logistics quotes) is auto-paid in USDC by a Turnkey-custodied wallet on Base + Tempo via x402. No human in the loop per call. Plugin: <code>keeperhub-rail</code>, three tools, one mounted endpoint.",
+    a: "Gas — the agent's hot wallet on Sepolia + 0G. Endpoints — KeeperHub. Sellers can price their <code>/rfq</code> endpoint via <code>HTTP 402</code> (anti-spam: $0.001 USDC per quote request to discourage 50-way fan-outs from quote-fishing agents). Buyers' Turnkey-custodied KeeperHub wallet on Base + Tempo handles the 402 retry transparently — same rail covers paid oracles, sanctions checks, logistics APIs. Plugin: <code>keeperhub-rail</code>, three tools, one mounted endpoint.",
   },
   {
     q: "What stops the agents from colluding or lying?",
@@ -803,3 +811,103 @@ export const FOOTER_LINKS = {
     { label: "ETHGlobal Open Agents", href: "https://ethglobal.com/events/openagents" },
   ],
 };
+
+// ─────────────────────────────────────────────────────────────────────────
+// Stack-agnostic matrix — the central pitch: spec is the only thing that
+// doesn't change; everything else plugs in.
+// ─────────────────────────────────────────────────────────────────────────
+
+export type StackEntry = {
+  label: string;
+  status: "real" | "stub";
+  loc: number;
+  href?: string;
+};
+
+export const STACK_AGNOSTIC = {
+  buyerSide: [
+    { label: "Odoo (JSON-RPC)", status: "real", loc: 74, href: "https://github.com/rodrigoarias12/open-deal/blob/main/src/connectors/buyer/odoo.ts" },
+    { label: "Excel (.xlsx)", status: "real", loc: 143, href: "https://github.com/rodrigoarias12/open-deal/blob/main/src/connectors/buyer/excel.ts" },
+    { label: "CSV", status: "real", loc: 113, href: "https://github.com/rodrigoarias12/open-deal/blob/main/src/connectors/buyer/csv.ts" },
+    { label: "SAP (RFC / OData)", status: "stub", loc: 71, href: "https://github.com/rodrigoarias12/open-deal/blob/main/src/connectors/buyer/sap.ts" },
+    { label: "your stack", status: "stub", loc: 0 },
+  ] satisfies StackEntry[],
+  sellerSide: [
+    { label: "Shopify (Admin GraphQL)", status: "stub", loc: 83, href: "https://github.com/rodrigoarias12/open-deal/blob/main/src/connectors/seller/shopify.ts" },
+    { label: "MercadoLibre (Items API)", status: "stub", loc: 91, href: "https://github.com/rodrigoarias12/open-deal/blob/main/src/connectors/seller/mercadolibre.ts" },
+    { label: "JSON file", status: "real", loc: 42, href: "https://github.com/rodrigoarias12/open-deal/blob/main/src/connectors/seller/json.ts" },
+    { label: "Excel (.xlsx)", status: "real", loc: 53, href: "https://github.com/rodrigoarias12/open-deal/blob/main/src/connectors/seller/excel.ts" },
+    { label: "your stack", status: "stub", loc: 0 },
+  ] satisfies StackEntry[],
+  implementations: [
+    { label: "TypeScript (apps/buyer-agent)", loc: 621, status: "real" as const, href: "https://github.com/rodrigoarias12/open-deal/blob/main/apps/buyer-agent" },
+    { label: "Python (apps/buyer-py)", loc: 379, status: "real" as const, href: "https://github.com/rodrigoarias12/open-deal/blob/main/apps/buyer-py" },
+    { label: "Hosted seller (Vercel)", loc: 200, status: "real" as const, href: "https://open-deal.vercel.app/sell" },
+    { label: "yours next?", loc: 0, status: "stub" as const, href: "https://github.com/rodrigoarias12/open-deal/blob/main/IMPLEMENTERS.md" },
+  ],
+};
+
+// ─────────────────────────────────────────────────────────────────────────
+// Two settlement modes — escrow.v1 (heavy B2B) + direct.v1 (atomic A2A)
+// ─────────────────────────────────────────────────────────────────────────
+
+export type SettlementMode = {
+  id: string;
+  badge: string;
+  title: string;
+  tagline: string;
+  useCase: string;
+  settlement: string;
+  latency: string;
+  audit: string;
+  disputes: string;
+  examples: string[];
+  status: "shipped" | "spec";
+  specRef: string;
+};
+
+export const SETTLEMENT_MODES: SettlementMode[] = [
+  {
+    id: "escrow",
+    badge: "escrow.v1",
+    title: "Escrow mode",
+    tagline: "When something physical or non-atomic moves.",
+    useCase:
+      "B2B procurement, physical goods, multi-day delivery — the default for the procurement flow.",
+    settlement:
+      "Onchain escrow contract. createOrder → confirmShipment → release / refund / dispute.",
+    latency: "minutes (chain confirms + shipment)",
+    audit: "L3 mandatory — every state transition anchored on 0G.",
+    disputes: "Built-in dispute window + refund.",
+    examples: [
+      "Logistics carriers quoting on shipments",
+      "Construction materials reorders",
+      "Industrial supplies replenishment",
+    ],
+    status: "shipped",
+    specRef:
+      "https://github.com/rodrigoarias12/open-deal/blob/main/PROTOCOL.md#41-escrow-mode--procurementsettlementv1escrowv1",
+  },
+  {
+    id: "direct",
+    badge: "direct.v1",
+    title: "Direct mode",
+    tagline: "When the response IS the good.",
+    useCase:
+      "Atomic agent-to-agent purchases. Settlement and delivery in the same HTTP request via x402.",
+    settlement:
+      "Buyer hits paid endpoint → 402 with payment ask → buyer pays → seller returns signed response. No escrow, no human, no dispute window.",
+    latency: "sub-second",
+    audit: "L3 optional. Signed response is the recourse.",
+    disputes: "None — reputation + stop using that seller.",
+    examples: [
+      "Paid oracle calls (price feed, sanctions check)",
+      "Premium catalog tier (per-query pricing)",
+      "Anti-spam paid RFQ ($0.001 USDC per quote)",
+      "Signed credentials from identity providers",
+    ],
+    status: "spec",
+    specRef:
+      "https://github.com/rodrigoarias12/open-deal/blob/main/PROTOCOL.md#42-direct-mode--procurementsettlementv1directv1",
+  },
+];

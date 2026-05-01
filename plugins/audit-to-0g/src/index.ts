@@ -105,13 +105,16 @@ function buildRecordAuditTool() {
       if (uploadErr) {
         throw new Error(`0G Storage upload failed: ${uploadErr}`);
       }
-      if (!tx || !tx.rootHash) {
+      // Indexer.upload() returns either single-batch or multi-batch result.
+      // We send a single MemData so we expect the single-batch shape.
+      const single = tx as { rootHash?: string; txHash?: string } | null;
+      if (!single || !single.rootHash) {
         throw new Error("0G Storage returned no root hash");
       }
-      const cidRoot: string = tx.rootHash.startsWith("0x")
-        ? tx.rootHash
-        : `0x${tx.rootHash}`;
-      const storageTx: string = tx.txHash;
+      const cidRoot: string = single.rootHash.startsWith("0x")
+        ? single.rootHash
+        : `0x${single.rootHash}`;
+      const storageTx: string = single.txHash ?? "";
 
       let policyHash: string;
       if (params.policy_hash) {

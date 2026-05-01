@@ -13,13 +13,17 @@
    alignment is guaranteed.
    We reserve the right ~12% for the vault. Stations live in 8% → 80%. */
 .demo4-floor {
-  --demo4-s0: 10%;
+  /* Stations span 8% → 78% (centered at 43%); vault sits at 92%.
+     Belt + packages run full width (0%→100%), so spreading the
+     stations more evenly across the floor visually balances the
+     overhead row with the conveyor below. */
+  --demo4-s0: 8%;
   --demo4-s1: 22%;
-  --demo4-s2: 35%;
-  --demo4-s3: 48%;
-  --demo4-s4: 61%;
-  --demo4-s5: 74%;
-  --demo4-vault: 90%;
+  --demo4-s2: 36%;
+  --demo4-s3: 50%;
+  --demo4-s4: 64%;
+  --demo4-s5: 78%;
+  --demo4-vault: 92%;
 }
 
 /* ----- hero shell (unchanged) ----- */
