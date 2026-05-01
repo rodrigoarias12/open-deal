@@ -3,31 +3,31 @@ import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://agentic-erp-eth.vercel.app"),
-  title: "Agentic ERP — autonomous B2B procurement",
+  metadataBase: new URL("https://open-deal.vercel.app"),
+  title: "Open Deal — agents that run the books",
   description:
-    "Open framework for autonomous, trust-minimized B2B agents. Identity on ENS, memory on 0G, escrow on Sepolia. Buyer and seller agents discover each other and settle without a human in every step.",
+    "Open Deal: the onchain protocol for autonomous B2B trade. Two agents, ENS identities, onchain policy, audit anchor on 0G, USDC escrow on Sepolia. The framework Anthropic's Project Deal said doesn't exist yet.",
   openGraph: {
-    title: "Agentic ERP",
+    title: "Agents that run the books.",
     description:
-      "Two autonomous agents trading B2B, with receipts. Identity on ENS, memory on 0G, escrow on Sepolia.",
-    url: "https://agentic-erp-eth.vercel.app",
-    siteName: "Agentic ERP",
+      "Two autonomous agents trading B2B with receipts. ENS identity, onchain policy, audit anchor on 0G. The framework Anthropic's Project Deal said doesn't exist yet.",
+    url: "https://open-deal.vercel.app",
+    siteName: "Open Deal",
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 1200,
-        alt: "Agentic ERP",
+        alt: "Open Deal — agents that run the books",
       },
     ],
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Agentic ERP",
+    title: "Open Deal — agents that run the books",
     description:
-      "Two autonomous agents trading B2B, with receipts. ENS · 0G · KeeperHub.",
+      "Two autonomous agents trading B2B with receipts. ENS · onchain policy · 0G audit. The framework Anthropic's Project Deal said doesn't exist.",
     images: ["/og-image.png"],
   },
 };
