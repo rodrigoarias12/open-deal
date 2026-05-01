@@ -74,6 +74,7 @@ to reach it.
 | `procurement.signature-pubkey` | 0x-hex | optional | Override which key signs quotes (defaults to the wallet `addr` resolves to). |
 | `procurement.rfq-price` | decimal USDC | optional | Price the seller charges per RFQ via x402. Default `0` (free). When set, `POST /rfq` returns `HTTP 402 Payment Required` until the buyer pays. See §3.4. |
 | `procurement.settlement-modes` | csv | optional | Settlement modes the seller supports. Values: `escrow.v1`, `direct.v1`. Default `escrow.v1`. A seller can advertise both. See §4. |
+| `procurement.skus` | csv | optional | SKU patterns or category tags the seller carries (e.g. `"PAPER,STATIONERY,PAPEL"`). Buyers MAY use this as a coarse pre-filter before fan-out: if set, the buyer SHOULD only RFQ this seller for SKUs whose name contains one of the listed substrings (case-insensitive). When unset, the seller participates in every RFQ (default). |
 
 Existing ENS keys still apply: `addr` (coinType 60) MUST resolve to the agent
 wallet that signs quotes and onchain actions; `description`, `url`, `email`

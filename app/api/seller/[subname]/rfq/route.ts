@@ -112,20 +112,19 @@ export async function POST(
     resolver.getAddress(),
     resolver.getText("procurement.rfq-price").catch(() => null),
   ]);
-  if (!catalogUri) {
-    return err(404, {
-      error: `${subname} has no catalog-uri text record`,
-      ens: `https://sepolia.app.ens.domains/${subname}`,
-    });
-  }
 
   // ── 402 dance per PROTOCOL.md §3.4 ────────────────────────────────────
-  // If the seller has set procurement.rfq-price (decimal USDC), require
-  // a payment proof header. Demo-mode validation: any non-empty
-  // X-Payment-Proof of the form "x402-mock-<nonce>" or "0x<txhash>" is
-  // accepted. In a production rail (KeeperHub / Coinbase x402) the seller
-  // would verify the proof matches an onchain transfer matching the
-  // nonce + amount + recipient.
+  // We charge BEFORE the catalog check on purpose: the spec says the
+  // seller charges for processing the RFQ regardless of whether they
+  // have the SKU in stock — that is what makes the price an effective
+  // anti-spam mechanism. Spammers don't get free knowledge of "do you
+  // have this SKU" by hammering the endpoint with random items.
+  //
+  // Demo-mode validation: any non-empty X-Payment-Proof matching
+  // "0x<txhash>" or "x402-<receipt>" is accepted. In a production rail
+  // (KeeperHub / Coinbase x402) the seller would verify the proof
+  // matches an onchain USDC transfer of the exact amount to the seller
+  // address with the nonce attested.
   const rfqPrice = parseFloat(rfqPriceRaw ?? "0");
   if (rfqPriceRaw && rfqPrice > 0) {
     const paymentProof = req.headers.get("x-payment-proof");
@@ -166,6 +165,13 @@ export async function POST(
         spec: "PROTOCOL.md#34",
       });
     }
+  }
+
+  if (!catalogUri) {
+    return err(404, {
+      error: `${subname} has no catalog-uri text record`,
+      ens: `https://sepolia.app.ens.domains/${subname}`,
+    });
   }
 
   let catalog: Catalog;

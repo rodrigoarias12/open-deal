@@ -2354,6 +2354,34 @@ footer {
 }
 .lt-result-sku { color: #d6d6dc; margin-bottom: 4px; font-weight: 600; }
 .lt-result-winner { color: #82d6ff; margin-bottom: 8px; font-size: 11px; }
+.lt-result-reasoning {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-left: 2px solid #b08cff;
+  background: rgba(176, 140, 255, 0.06);
+  border-radius: 0 3px 3px 0;
+  font-size: 11px;
+  line-height: 1.45;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.lt-result-reasoning-llm { border-left-color: #b08cff; background: rgba(176, 140, 255, 0.06); }
+.lt-result-reasoning-fallback-cheapest { border-left-color: #6a6a74; background: rgba(255, 255, 255, 0.03); }
+.lt-result-reasoning-tag {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #b08cff;
+  padding: 1px 6px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.lt-result-reasoning-fallback-cheapest .lt-result-reasoning-tag { color: #8a8a94; }
+.lt-result-reasoning-text { color: #d6d6dc; font-style: italic; }
 .lt-result-links { display: flex; flex-wrap: wrap; gap: 12px; font-size: 11px; }
 .lt-result-links a {
   color: #ffd479;

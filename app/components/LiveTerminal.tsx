@@ -15,6 +15,8 @@ interface ResolvedOrder {
   erp_po_id: string | null;
   erp_po_url: string | null;
   skipped_reason: string | null;
+  llm_reasoning: string | null;
+  selection_method: "llm" | "fallback-cheapest" | "no-eligible" | null;
 }
 interface ProcurementTickResult {
   at: string;
@@ -276,6 +278,18 @@ export function LiveTerminal({ autoStart = false }: LiveTerminalProps) {
                     ? `→ ${o.winner_ens.split(".")[0]} · $${o.winner_total_usd ?? "—"}`
                     : `× ${o.skipped_reason ?? "skipped"}`}
                 </div>
+                {o.llm_reasoning && (
+                  <div
+                    className={`lt-result-reasoning lt-result-reasoning-${o.selection_method ?? "none"}`}
+                  >
+                    <span className="lt-result-reasoning-tag">
+                      {o.selection_method === "llm" ? "claude" : "fallback"}
+                    </span>
+                    <span className="lt-result-reasoning-text">
+                      {o.llm_reasoning}
+                    </span>
+                  </div>
+                )}
                 <div className="lt-result-links">
                   {o.escrow_explorer_url && o.escrow_tx && (
                     <a

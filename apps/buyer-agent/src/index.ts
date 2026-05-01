@@ -5,6 +5,7 @@ import policyPlugin from "../../../plugins/policy-from-ens/src/index";
 import auditPlugin from "../../../plugins/audit-to-0g/src/index";
 import { pickBuyerConnector } from "../../../src/connectors/buyer/factory";
 import { TelegramApprover, type ApprovalResult } from "../../../src/notify/telegram";
+import { llmAsk } from "../../../src/llm/client";
 import { readHistoryFrom0G } from "./history-from-0g";
 import {
   loadCatalogFromUri,
@@ -188,18 +189,24 @@ async function resolveSellers(
       console.log(`[buyer]   × ${ens} → no resolver`);
       continue;
     }
-    const [endpoint, addrRaw, catalogUri, categoriesRaw] = await Promise.all([
+    const [endpoint, addrRaw, catalogUri, skusRaw, legacyCategoriesRaw] = await Promise.all([
       resolver.getText("endpoint"),
       resolver.getAddress(),
       resolver.getText("catalog-uri").catch(() => null),
+      // Spec-canonical (PROTOCOL.md §1) — comma-separated SKU patterns
+      // or category tags. Used as a coarse pre-filter so we don't fan out
+      // RFQs to sellers that obviously don't sell what we need.
+      resolver.getText("procurement.skus").catch(() => null),
+      // Back-compat with sellers that set the old `categories` record.
       resolver.getText("categories").catch(() => null),
     ]);
     if (!endpoint) {
       console.log(`[buyer]   × ${ens} → no 'endpoint' text record`);
       continue;
     }
-    const categories = categoriesRaw
-      ? categoriesRaw.split(",").map((c) => c.trim().toLowerCase()).filter(Boolean)
+    const sourceRaw = skusRaw ?? legacyCategoriesRaw;
+    const categories = sourceRaw
+      ? sourceRaw.split(",").map((c) => c.trim().toLowerCase()).filter(Boolean)
       : undefined;
     out.push({
       ens,
@@ -338,27 +345,73 @@ const MAX_RFQ_PRICE_USDC = parseFloat(
   process.env.MAX_RFQ_PRICE_USDC || "0.01",
 );
 
-// Pay an x402 challenge. In real life this either calls KeeperHub
-// (kh_pay) or a direct USDC transfer; for the demo we emit a mock
-// receipt that the seller-side validator will accept. Set
-// KEEPERHUB_API_KEY to switch this to a real x402 call.
+// Lazy import — @keeperhub/wallet pulls in viem; only loaded when
+// KH_WALLET_ENABLED is truthy so dev builds without KH config don't
+// fail at module init.
+let _kh: typeof import("@keeperhub/wallet") | null = null;
+async function khSdk() {
+  if (_kh) return _kh;
+  _kh = await import("@keeperhub/wallet");
+  return _kh;
+}
+
+function khEnabled(): boolean {
+  // Two ways to enable real KH: env flag (production), or default-on
+  // when wallet config file exists locally (dev convenience).
+  if (process.env.KH_WALLET_ENABLED === "false") return false;
+  return Boolean(
+    process.env.KEEPERHUB_API_KEY ||
+      process.env.KH_WALLET_ENABLED === "true",
+  );
+}
+
+// Pay an x402 challenge — returns a payment proof string the seller
+// will accept as X-Payment-Proof on the retry.
+//
+//   • Real path  (KH enabled): hand the 402 Response to KeeperHub's
+//     paymentSigner.pay(). The SDK signs the USDC transfer via the
+//     Turnkey-custodied wallet on Base, broadcasts the tx, and returns
+//     the post-payment retry Response. We extract the actual on-chain
+//     tx hash from that response (X-Payment-Receipt or body field) and
+//     use it as the proof.
+//
+//   • Mock path  (no KH): emit a deterministic "x402-mock-…" receipt.
+//     Seller-side validators in demo mode accept any well-formed proof,
+//     so the wire format is exercised even without real KH funds.
 async function payX402Challenge(args: {
   amountUsdc: number;
   to: string;
   nonce: string;
   network: string;
-}): Promise<string> {
-  if (process.env.KEEPERHUB_API_KEY) {
-    // Production path: hand off to KeeperHub. Kept as a TODO because
-    // wiring real x402 needs the KH wallet funded — out of scope for
-    // the demo build window. Falls through to mock receipt below.
-    console.log(
-      `[buyer]     · KEEPERHUB_API_KEY present but pay path is mock-only in this build`,
-    );
+  // The original 402 Response — needed by paymentSigner.pay() so it
+  // can read the X-Payment-* headers and compute the signed transfer.
+  response402?: Response;
+  // The original request init we want to replay after payment.
+  retryInit?: { url: string; method: string; headers: Record<string, string>; body: string };
+}): Promise<{ proof: string; usedRail: "keeperhub" | "mock"; postPaymentResponse?: Response }> {
+  if (khEnabled() && args.response402 && args.retryInit) {
+    try {
+      const { paymentSigner } = await khSdk();
+      const paid = await paymentSigner.pay(args.response402, {
+        body: args.retryInit.body,
+        headers: args.retryInit.headers,
+      });
+      // Try to read the on-chain tx hash from KH's response. KH echoes
+      // it in X-KH-Payment-Tx (preferred) or in the response body.
+      const txFromHeader = paid.headers.get("x-kh-payment-tx") ?? paid.headers.get("x-payment-tx");
+      const proof = txFromHeader ?? `0xkh-${args.network}-${args.nonce}`;
+      return { proof, usedRail: "keeperhub", postPaymentResponse: paid };
+    } catch (e) {
+      console.log(
+        `[buyer]     · KeeperHub pay failed (${(e as Error).message}); falling back to mock receipt`,
+      );
+      // fall through to mock
+    }
   }
-  // Demo receipt: deterministic, traceable, not redeemable. Sellers in
-  // demo-mode validation accept any "x402-…" prefix (see seller route).
-  return `x402-mock-${args.network}-${args.nonce}`;
+  return {
+    proof: `x402-mock-${args.network}-${args.nonce}`,
+    usedRail: "mock",
+  };
 }
 
 async function broadcastRfq(
@@ -390,6 +443,7 @@ async function broadcastRfq(
     });
 
     let paymentProof: string | null = null;
+    let usedRail: "keeperhub" | "mock" | null = null;
     let attempts = 0;
     let resp: Response;
     try {
@@ -425,16 +479,31 @@ async function broadcastRfq(
             );
             break;
           }
+          const railLabel = khEnabled() ? "KeeperHub (real x402)" : "mock receipt";
           console.log(
-            `[buyer]     ↻ ${seller.ens} → 402 · paying ${amount} ${token} via x402 (${network})…`,
+            `[buyer]     ↻ ${seller.ens} → 402 · paying ${amount} ${token} via ${railLabel} on ${network}…`,
           );
-          paymentProof = await payX402Challenge({
+          const result = await payX402Challenge({
             amountUsdc: amount,
             to,
             nonce,
             network,
+            response402: resp.clone(),
+            retryInit: { url, method: "POST", headers, body },
           });
-          continue; // retry with proof
+          paymentProof = result.proof;
+          usedRail = result.usedRail;
+          // KH already executed the post-payment retry for us; if it
+          // returned a usable response, use it directly and skip the
+          // manual retry round.
+          if (result.postPaymentResponse) {
+            resp = result.postPaymentResponse;
+            console.log(
+              `[buyer]     ✓ ${seller.ens} paid via ${result.usedRail} · proof ${paymentProof.slice(0, 20)}…`,
+            );
+            break;
+          }
+          continue; // retry with proof header
         }
         break; // non-402 (or post-payment), exit loop
       }
@@ -450,7 +519,7 @@ async function broadcastRfq(
       quote.source_endpoint = seller.endpoint;
       quote.source_ens = seller.ens;
       console.log(
-        `[buyer]     ✓ ${seller.ens} → $${quote.total_usd} ${quote.currency}, ${quote.delivery_days}d, sig ${quote.signature.slice(0, 18)}…${paymentProof ? " (via x402)" : ""}`,
+        `[buyer]     ✓ ${seller.ens} → $${quote.total_usd} ${quote.currency}, ${quote.delivery_days}d, sig ${quote.signature.slice(0, 18)}…${paymentProof ? ` (paid via ${usedRail})` : ""}`,
       );
       quotes.push(quote);
     } catch (e) {
@@ -462,13 +531,126 @@ async function broadcastRfq(
   return quotes;
 }
 
-function pickWinner(need: Need, quotes: Quote[]): Quote | null {
-  const priced = quotes
+// Filter quotes against budget + deadline constraints from the RFQ.
+// This is the deterministic eligibility gate — any quote that fails
+// these checks is OFF THE TABLE before the LLM ever sees them.
+function eligibleQuotes(need: Need, quotes: Quote[]): Quote[] {
+  return quotes
     .filter((q) => q.unit_price_usd <= need.max_unit_price_usd)
     .filter((q) => q.delivery_days <= need.deadline_days);
-  if (priced.length === 0) return null;
-  priced.sort((a, b) => a.total_usd - b.total_usd);
-  return priced[0];
+}
+
+// Lightweight summary of one quote — what the LLM sees, not the
+// full Quote shape (signature etc. are not load-bearing for the choice).
+interface QuoteForLlm {
+  index: number;
+  seller_ens: string;
+  unit_price_usd: number;
+  total_usd: number;
+  delivery_days: number;
+}
+
+interface WinnerPick {
+  winner: Quote | null;
+  reasoning: string;
+  // "llm" = chose via Claude · "fallback-cheapest" = LLM unavailable, picked the cheapest
+  selection_method: "llm" | "fallback-cheapest" | "no-eligible";
+}
+
+const PICK_WINNER_SYSTEM = `You are a procurement agent picking the best supplier for a B2B order.
+
+Given an RFQ, recent purchase history for the same SKU, and a list of eligible
+quotes (already filtered by budget and deadline), choose the quote that best
+serves the buyer.
+
+Decision factors, in priority order:
+  1. Total cost (cheaper is usually better, but not blindly).
+  2. Delivery time relative to the deadline (faster is safer when the
+     deadline is tight; not worth paying extra when the deadline is loose).
+  3. Vendor relationship: if the buyer has bought this SKU from a vendor
+     repeatedly, switching for a tiny savings has switching cost.
+  4. Risk: a wildly out-of-band quote (much cheaper than history average)
+     could indicate a data error — flag it but still consider.
+
+Respond ONLY with a single JSON object on one line, no prose:
+  {"winner_index": <int>, "reasoning": "<2 short sentences max>"}
+
+The reasoning will be stored on-chain (in 0G audit), so it must be specific
+and defensible — name the quote you chose and the trade-off you made.`;
+
+async function pickWinner(
+  need: Need,
+  quotes: Quote[],
+  historySnippet: { seller_ens: string; unit_price_usd: number; at: string }[],
+): Promise<WinnerPick> {
+  const eligible = eligibleQuotes(need, quotes);
+  if (eligible.length === 0) {
+    return { winner: null, reasoning: "no quotes met budget+deadline", selection_method: "no-eligible" };
+  }
+
+  // Single eligible quote → no reason to consult the LLM.
+  if (eligible.length === 1) {
+    return {
+      winner: eligible[0],
+      reasoning: `only one eligible quote (${eligible[0].source_ens})`,
+      selection_method: "fallback-cheapest",
+    };
+  }
+
+  const summary: QuoteForLlm[] = eligible.map((q, i) => ({
+    index: i,
+    seller_ens: q.source_ens ?? "unknown",
+    unit_price_usd: q.unit_price_usd,
+    total_usd: q.total_usd,
+    delivery_days: q.delivery_days,
+  }));
+
+  const userMessage = JSON.stringify(
+    {
+      sku: need.sku,
+      quantity: need.quantity,
+      max_unit_price_usd: need.max_unit_price_usd,
+      deadline_days: need.deadline_days,
+      reason: need.reason,
+      history_for_this_sku: historySnippet.slice(-5),
+      quotes: summary,
+    },
+    null,
+    2,
+  );
+
+  try {
+    const llmResp = await llmAsk({
+      system: PICK_WINNER_SYSTEM,
+      user: userMessage,
+      maxTokens: 200,
+      prefill: '{"winner_index":',
+    });
+    // Parse strict JSON. The prefill ensures the response starts with our key.
+    const parsed = JSON.parse(llmResp.text) as { winner_index: number; reasoning: string };
+    if (
+      typeof parsed.winner_index !== "number" ||
+      parsed.winner_index < 0 ||
+      parsed.winner_index >= eligible.length
+    ) {
+      throw new Error(`LLM returned out-of-range winner_index: ${parsed.winner_index}`);
+    }
+    return {
+      winner: eligible[parsed.winner_index],
+      reasoning: parsed.reasoning ?? "(no reasoning provided)",
+      selection_method: "llm",
+    };
+  } catch (e) {
+    // LLM unavailable / malformed response → fall back to deterministic
+    // cheapest within budget. This keeps the agent functional even if
+    // ANTHROPIC_API_KEY is missing or the API is down.
+    const sorted = [...eligible].sort((a, b) => a.total_usd - b.total_usd);
+    return {
+      winner: sorted[0],
+      reasoning: `LLM unavailable (${(e as Error).message}); fell back to cheapest in budget`,
+      selection_method: "fallback-cheapest",
+    };
+  }
 }
 
 /**
@@ -489,6 +671,10 @@ export interface ResolvedOrder {
   erp_po_id: string | null;
   erp_po_url: string | null;
   skipped_reason: string | null;
+  // LLM-driven winner selection. Surfaced to the UI so the LiveTerminal /
+  // dashboard can render WHY each winner was chosen.
+  llm_reasoning: string | null;
+  selection_method: "llm" | "fallback-cheapest" | "no-eligible" | null;
 }
 
 export interface ProcurementTickResult {
@@ -618,6 +804,10 @@ export async function runProcurementTick(): Promise<ProcurementTickResult> {
     approval: ApprovalResult | null;
     policySnapshot: unknown;
     escrow: Awaited<ReturnType<typeof lockEscrow>> | null;
+    // LLM-driven winner selection. Anchored on 0G as part of the audit
+    // so a third party can verify the reasoning that justified the choice.
+    llmReasoning: string | null;
+    selectionMethod: "llm" | "fallback-cheapest" | "no-eligible" | null;
   };
 
   const slots: Slot[] = needs.map((need) => ({
@@ -636,6 +826,8 @@ export async function runProcurementTick(): Promise<ProcurementTickResult> {
       erp_po_id: null,
       erp_po_url: null,
       skipped_reason: null,
+      llm_reasoning: null,
+      selection_method: null,
     },
     quotes: [],
     winner: null,
@@ -643,6 +835,8 @@ export async function runProcurementTick(): Promise<ProcurementTickResult> {
     approval: null,
     policySnapshot: null,
     escrow: null,
+    llmReasoning: null,
+    selectionMethod: null,
   }));
   for (const s of slots) orders.push(s.order);
 
@@ -660,9 +854,16 @@ export async function runProcurementTick(): Promise<ProcurementTickResult> {
 
       const indexed = skuIndex.get(s.need.sku) ?? [];
       const indexedEnsSet = new Set(indexed.map((e) => e.seller.ens));
-      const fallback = sellers.filter(
-        (sl) => !sl.catalog_uri && !indexedEnsSet.has(sl.ens),
-      );
+      // Fallback sellers: those without a catalog. We still consider them
+      // BUT respect their procurement.skus declaration if present — a
+      // seller that says "I sell PAPER" gets the RFQ for "PAPEL-A4" but
+      // not for "TINTA-NEG-XL". Saves wasted RFQ round-trips.
+      const skuLower = s.need.sku.toLowerCase();
+      const fallback = sellers.filter((sl) => {
+        if (sl.catalog_uri || indexedEnsSet.has(sl.ens)) return false;
+        if (!sl.categories || sl.categories.length === 0) return true;
+        return sl.categories.some((c) => skuLower.includes(c));
+      });
       const targets = [...indexed.map((e) => e.seller), ...fallback];
       if (targets.length === 0) {
         console.log(
@@ -691,25 +892,46 @@ export async function runProcurementTick(): Promise<ProcurementTickResult> {
         s.order.skipped_reason = "no quotes received";
         return;
       }
-      const winner = pickWinner(s.need, quotes);
-      if (!winner) {
+      const histForSku = history.purchases
+        .filter((p) => p.sku === s.need.sku)
+        .map((p) => ({
+          seller_ens: p.seller_ens,
+          unit_price_usd: p.unit_price_usd,
+          at: p.at,
+        }));
+      console.log(
+        `[buyer] asking Claude to pick winner for ${s.need.sku} (${quotes.length} quotes, ${histForSku.length} historical)…`,
+      );
+      const pick = await pickWinner(s.need, quotes, histForSku);
+      if (!pick.winner) {
         console.log(
-          `[buyer] no quote within budget for ${s.need.sku} (max $${s.need.max_unit_price_usd}/u, ≤${s.need.deadline_days}d) — skipping`,
+          `[buyer] no eligible quote for ${s.need.sku}: ${pick.reasoning} — skipping`,
         );
-        s.order.skipped_reason = "no quote within budget";
+        s.order.skipped_reason = pick.reasoning;
         return;
       }
-      s.winner = winner;
-      s.order.winner_ens = winner.source_ens ?? null;
-      s.order.winner_total_usd = winner.total_usd;
+      s.winner = pick.winner;
+      s.llmReasoning = pick.reasoning;
+      s.selectionMethod = pick.selection_method;
+      s.order.winner_ens = pick.winner.source_ens ?? null;
+      s.order.winner_total_usd = pick.winner.total_usd;
+      s.order.llm_reasoning = pick.reasoning;
+      s.order.selection_method = pick.selection_method;
+      const tag =
+        pick.selection_method === "llm"
+          ? "[llm]"
+          : pick.selection_method === "fallback-cheapest"
+            ? "[fallback]"
+            : "[—]";
       console.log(
-        `[buyer] winner ${s.need.sku}: ${winner.source_ens} → $${winner.total_usd} ${winner.currency}, ${winner.delivery_days}d`,
+        `[buyer] winner ${s.need.sku}: ${pick.winner.source_ens} → $${pick.winner.total_usd} ${pick.winner.currency}, ${pick.winner.delivery_days}d ${tag}`,
       );
+      console.log(`[buyer]   ${tag} reasoning: ${pick.reasoning}`);
       s.pattern = detectPattern(
         history.purchases,
         s.need.sku,
-        winner.source_ens ?? "unknown",
-        winner.unit_price_usd,
+        pick.winner.source_ens ?? "unknown",
+        pick.winner.unit_price_usd,
       );
     }),
   );
@@ -831,6 +1053,15 @@ export async function runProcurementTick(): Promise<ProcurementTickResult> {
             total_usd: s.winner!.total_usd,
             unit_price_usd: s.winner!.unit_price_usd,
             delivery_days: s.winner!.delivery_days,
+          },
+          // The LLM's reasoning is anchored alongside the decision so
+          // a third party can verify WHY this winner was chosen, not
+          // just that it was. selection_method = "llm" means an LLM
+          // call drove the choice; "fallback-cheapest" means the LLM
+          // was unavailable and we used the deterministic baseline.
+          selection: {
+            method: s.selectionMethod,
+            reasoning: s.llmReasoning,
           },
           pattern: s.pattern,
           approval: s.approval,
