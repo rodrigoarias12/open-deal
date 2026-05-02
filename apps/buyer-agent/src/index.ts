@@ -48,7 +48,7 @@ const RESOLVER_ABI = [
 ];
 
 const RECURRING_THRESHOLD = 2; // ≥ N past purchases for the same SKU = "recurring"
-const BETTER_DEAL_PCT = 15; // ≥ N% below avg = trigger human approval
+const BETTER_DEAL_PCT = 12; // ≥ N% below avg = trigger human approval
 
 function detectPattern(
   history: Purchase[],

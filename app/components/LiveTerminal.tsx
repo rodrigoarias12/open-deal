@@ -2,6 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 
+// Module-level counter — survives re-renders and StrictMode double-invoke
+// so keys are always unique across the lifetime of the page.
+let _lineSeq = 0;
+function nextLineId() { return ++_lineSeq; }
+
+export type LineColor = "green" | "purple" | "yellow" | "red" | "blue" | "gray";
+export interface StructuredLine {
+  tag: string;
+  color: LineColor;
+  message: string;
+}
+
 interface ResolvedOrder {
   sku: string;
   quantity: number;
@@ -27,32 +39,30 @@ interface ProcurementTickResult {
   orders: ResolvedOrder[];
 }
 
-type Line = { id: number; text: string; level: "info" | "error" | "system" };
+type Line = StructuredLine & { id: number };
 
 const ZG_EXPLORER = "https://chainscan-galileo.0g.ai/tx/";
 
-// Style classes derived from the line content. We don't refactor the
-// agent's logging — just decorate matching patterns so the terminal
-// reads like a live diagnostic instead of a log dump.
-function decorate(text: string, level: Line["level"]): string {
-  if (level === "error") return "lt-line-error";
-  if (level === "system") return "lt-line-system";
-  if (text.startsWith("[buyer]")) return "lt-line-buyer";
-  if (
-    text.includes("Storage upload") ||
-    text.includes("Wait for log entry") ||
-    text.includes("Waiting for storage node")
-  )
-    return "lt-line-zg";
-  if (text.includes("Transaction submitted")) return "lt-line-tx";
-  if (
-    text.includes("Indexer") ||
-    text.includes("StorageNode") ||
-    text.startsWith("Tasks created") ||
-    text.startsWith("Processing tasks")
-  )
-    return "lt-line-zg";
-  return "lt-line-info";
+// Badge background + text colors per tag color
+const BADGE_STYLE: Record<LineColor, { bg: string; text: string }> = {
+  green:  { bg: "#1a3a1a", text: "#4ade80" },
+  purple: { bg: "#2d1a3a", text: "#c084fc" },
+  yellow: { bg: "#3a2e0a", text: "#fbbf24" },
+  red:    { bg: "#3a1a1a", text: "#f87171" },
+  blue:   { bg: "#1a2a3a", text: "#60a5fa" },
+  gray:   { bg: "#2a2a2a", text: "#9ca3af" },
+};
+
+function Badge({ tag, color }: { tag: string; color: LineColor }) {
+  const s = BADGE_STYLE[color];
+  return (
+    <span
+      className="lt2-badge"
+      style={{ background: s.bg, color: s.text }}
+    >
+      {tag}
+    </span>
+  );
 }
 
 function shortHash(h: string | null | undefined): string {
@@ -60,46 +70,31 @@ function shortHash(h: string | null | undefined): string {
   return `${h.slice(0, 8)}…${h.slice(-4)}`;
 }
 
-interface LiveTerminalProps {
-  // Called when the user clicks Run. Returns a function that closes
-  // the stream early if the user cancels (or component unmounts).
-  autoStart?: boolean;
-}
-
-export function LiveTerminal({ autoStart = false }: LiveTerminalProps) {
+export function LiveTerminal({ autoStart = false }: { autoStart?: boolean }) {
   const [lines, setLines] = useState<Line[]>([]);
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ProcurementTickResult | null>(null);
-  const [elapsed, setElapsed] = useState<number>(0);
+  const [elapsed, setElapsed] = useState(0);
 
-  const linesRef = useRef<HTMLDivElement | null>(null);
-  const idCounter = useRef(0);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const startedAt = useRef<number>(0);
+  const startedAt = useRef(0);
 
-  function pushLine(text: string, level: Line["level"]) {
-    idCounter.current += 1;
-    setLines((prev) => [
-      ...prev,
-      { id: idCounter.current, text, level },
-    ]);
+  function pushLine(sl: StructuredLine) {
+    setLines((prev) => [...prev, { ...sl, id: nextLineId() }]);
   }
 
-  // Auto-scroll to the bottom as lines come in.
   useEffect(() => {
-    const el = linesRef.current;
+    const el = bodyRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
   }, [lines]);
 
-  // Tick the elapsed timer while running.
   useEffect(() => {
     if (!running) return;
-    const t = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - startedAt.current) / 1000));
-    }, 1000);
+    const t = setInterval(() => setElapsed(Math.floor((Date.now() - startedAt.current) / 1000)), 1000);
     return () => clearInterval(t);
   }, [running]);
 
@@ -122,27 +117,21 @@ export function LiveTerminal({ autoStart = false }: LiveTerminalProps) {
         signal: controller.signal,
         cache: "no-store",
       });
-      if (!res.ok || !res.body) {
-        throw new Error(`stream failed · HTTP ${res.status}`);
-      }
+      if (!res.ok || !res.body) throw new Error(`stream failed · HTTP ${res.status}`);
+
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buf = "";
 
-      // Parse SSE events as they arrive.
       while (true) {
         const { value, done: streamDone } = await reader.read();
         if (streamDone) break;
         buf += decoder.decode(value, { stream: true });
-
-        // Each event is a block separated by "\n\n".
         const blocks = buf.split("\n\n");
-        buf = blocks.pop() ?? ""; // keep the trailing partial
+        buf = blocks.pop() ?? "";
 
         for (const block of blocks) {
-          if (!block.trim()) continue;
-          if (block.startsWith(":")) continue; // heartbeat comment
-
+          if (!block.trim() || block.startsWith(":")) continue;
           let eventName = "message";
           let dataLine = "";
           for (const ln of block.split("\n")) {
@@ -151,33 +140,28 @@ export function LiveTerminal({ autoStart = false }: LiveTerminalProps) {
           }
           if (!dataLine) continue;
           let data: unknown;
-          try {
-            data = JSON.parse(dataLine);
-          } catch {
-            continue;
-          }
+          try { data = JSON.parse(dataLine); } catch { continue; }
 
           if (eventName === "hello") {
-            pushLine(
-              `[stream] connected · ${(data as { msg: string }).msg}`,
-              "system",
-            );
+            pushLine({ tag: "SYS", color: "gray", message: "connected · running procurement tick…" });
           } else if (eventName === "line") {
-            const d = data as { text: string; level: "info" | "error" };
-            pushLine(d.text, d.level);
+            pushLine(data as StructuredLine);
           } else if (eventName === "error") {
             const d = data as { error: string };
             setError(d.error);
-            pushLine(`[stream] ✖ error: ${d.error}`, "error");
+            pushLine({ tag: "ERR", color: "red", message: d.error });
           } else if (eventName === "done") {
-            setResult(data as ProcurementTickResult);
+            const r = data as ProcurementTickResult;
+            setResult(r);
             setDone(true);
-            pushLine(
-              `[stream] ✓ tick complete · ${
-                (data as ProcurementTickResult).orders.length
-              } order(s) resolved`,
-              "system",
-            );
+            const won = r.orders.filter((o) => o.winner_ens).length;
+            const anchors = r.orders.filter((o) => o.audit_anchor_index).length;
+            const pos = r.orders.filter((o) => o.erp_po_id).length;
+            pushLine({
+              tag: "✓",
+              color: "green",
+              message: `tick complete · ${Math.floor((Date.now() - startedAt.current) / 1000)}s · ${won} order(s) · ${anchors} anchor(s) · ${pos} PO(s) in Odoo`,
+            });
           }
         }
       }
@@ -185,7 +169,7 @@ export function LiveTerminal({ autoStart = false }: LiveTerminalProps) {
       const msg = (e as Error).message;
       if ((e as Error).name !== "AbortError") {
         setError(msg);
-        pushLine(`[stream] ✖ ${msg}`, "error");
+        pushLine({ tag: "ERR", color: "red", message: msg });
       }
     } finally {
       setRunning(false);
@@ -194,127 +178,98 @@ export function LiveTerminal({ autoStart = false }: LiveTerminalProps) {
 
   function abort() {
     abortRef.current?.abort();
-    pushLine("[stream] ⏹ aborted by user", "system");
+    pushLine({ tag: "SYS", color: "gray", message: "aborted by user" });
     setRunning(false);
   }
 
-  // Auto-start on mount if requested.
   useEffect(() => {
-    if (autoStart) {
-      void start();
-    }
-    return () => {
-      abortRef.current?.abort();
-    };
+    if (autoStart) void start();
+    return () => { abortRef.current?.abort(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const elapsedFmt = `${Math.floor(elapsed / 60)}:${(elapsed % 60).toString().padStart(2, "0")}`;
+
   return (
-    <div className="lt">
-      <div className="lt-bar">
-        <div className="lt-bar-dots">
-          <span className="lt-dot lt-dot-r" />
-          <span className="lt-dot lt-dot-y" />
-          <span className="lt-dot lt-dot-g" />
+    <div className="lt2">
+      {/* Title bar */}
+      <div className="lt2-bar">
+        <div className="lt2-bar-dots">
+          <span className="lt2-dot" style={{ background: "#ff5f57" }} />
+          <span className="lt2-dot" style={{ background: "#ffbd2e" }} />
+          <span className="lt2-dot" style={{ background: "#28c840" }} />
         </div>
-        <div className="lt-bar-title">
-          buyer-agent · live · procurement tick
-        </div>
-        <div className="lt-bar-right">
+        <span className="lt2-bar-title">buyer-agent · live · procurement tick</span>
+        <span className="lt2-bar-right">
           {running ? (
-            <>
-              <span className="lt-spinner" />
-              <span className="lt-elapsed">
-                {Math.floor(elapsed / 60)}:
-                {(elapsed % 60).toString().padStart(2, "0")}
-              </span>
-            </>
+            <><span className="lt2-spinner" /> <span className="lt2-elapsed">{elapsedFmt}</span></>
           ) : done ? (
-            <span className="lt-elapsed lt-elapsed-done">
-              ✓ {Math.floor(elapsed / 60)}:
-              {(elapsed % 60).toString().padStart(2, "0")}
-            </span>
+            <span className="lt2-elapsed-done">✓ {elapsedFmt}</span>
           ) : (
-            <span className="lt-idle">idle</span>
+            <span className="lt2-idle">idle</span>
           )}
-        </div>
+        </span>
       </div>
 
-      <div ref={linesRef} className="lt-body">
+      {/* Log body */}
+      <div ref={bodyRef} className="lt2-body">
         {lines.length === 0 && !running && (
-          <div className="lt-empty">
-            press <kbd>run</kbd> to start a procurement tick. each step
-            streams here as the agent calls Odoo, ENS, Sepolia and 0G.
+          <div className="lt2-empty">
+            press <kbd>▶ run</kbd> to trigger a procurement tick — each step streams here live
           </div>
         )}
-        {lines.map((l) => (
-          <div key={l.id} className={`lt-line ${decorate(l.text, l.level)}`}>
-            <span className="lt-line-text">{l.text}</span>
-          </div>
-        ))}
+        {lines.map((l) => {
+          const isSuccess = l.tag === "✓";
+          return (
+            <div
+              key={l.id}
+              className={`lt2-line${isSuccess ? " lt2-line-done" : ""}`}
+            >
+              <Badge tag={l.tag} color={l.color} />
+              <span className="lt2-msg">{l.message}</span>
+            </div>
+          );
+        })}
         {running && (
-          <div className="lt-line">
-            <span className="lt-cursor">▋</span>
+          <div className="lt2-line">
+            <span className="lt2-cursor">▋</span>
           </div>
         )}
       </div>
 
+      {/* Result cards */}
       {result && (
-        <div className="lt-result">
-          <div className="lt-result-head">
-            <span>✓ tick complete</span>
-            <span className="lt-result-meta">
-              {result.orders.length} order(s) · {result.connector_id}
-            </span>
-          </div>
-          <div className="lt-result-grid">
+        <div className="lt2-result">
+          <div className="lt2-result-grid">
             {result.orders.map((o, i) => (
-              <div key={i} className="lt-result-card">
-                <div className="lt-result-sku">
-                  {o.sku} × {o.quantity}
-                </div>
-                <div className="lt-result-winner">
+              <div key={i} className={`lt2-card ${o.winner_ens ? "lt2-card-won" : "lt2-card-skip"}`}>
+                <div className="lt2-card-sku">{o.sku} × {o.quantity}</div>
+                <div className="lt2-card-winner">
                   {o.winner_ens
                     ? `→ ${o.winner_ens.split(".")[0]} · $${o.winner_total_usd ?? "—"}`
                     : `× ${o.skipped_reason ?? "skipped"}`}
                 </div>
                 {o.llm_reasoning && (
-                  <div
-                    className={`lt-result-reasoning lt-result-reasoning-${o.selection_method ?? "none"}`}
-                  >
-                    <span className="lt-result-reasoning-tag">
+                  <div className={`lt2-card-reason lt2-card-reason-${o.selection_method ?? "none"}`}>
+                    <span className="lt2-card-reason-tag">
                       {o.selection_method === "llm" ? "claude" : "fallback"}
                     </span>
-                    <span className="lt-result-reasoning-text">
-                      {o.llm_reasoning}
-                    </span>
+                    {o.llm_reasoning.slice(0, 160)}
                   </div>
                 )}
-                <div className="lt-result-links">
+                <div className="lt2-card-links">
                   {o.escrow_explorer_url && o.escrow_tx && (
-                    <a
-                      href={o.escrow_explorer_url}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
+                    <a href={o.escrow_explorer_url} target="_blank" rel="noreferrer">
                       escrow {shortHash(o.escrow_tx)} ↗
                     </a>
                   )}
                   {o.audit_anchor_tx && o.audit_anchor_index && (
-                    <a
-                      href={`${ZG_EXPLORER}${o.audit_anchor_tx}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
+                    <a href={`${ZG_EXPLORER}${o.audit_anchor_tx}`} target="_blank" rel="noreferrer">
                       0G #{o.audit_anchor_index} ↗
                     </a>
                   )}
                   {o.erp_po_id && (
-                    <a
-                      href={o.erp_po_url ?? "#"}
-                      target={o.erp_po_url ? "_blank" : undefined}
-                      rel={o.erp_po_url ? "noreferrer" : undefined}
-                    >
+                    <a href={o.erp_po_url ?? "#"} target={o.erp_po_url ? "_blank" : undefined} rel={o.erp_po_url ? "noreferrer" : undefined}>
                       Odoo {o.erp_po_id} {o.erp_po_url ? "↗" : ""}
                     </a>
                   )}
@@ -325,20 +280,13 @@ export function LiveTerminal({ autoStart = false }: LiveTerminalProps) {
         </div>
       )}
 
-      <div className="lt-foot">
-        <button
-          className="lt-btn lt-btn-primary"
-          disabled={running}
-          onClick={start}
-        >
-          {running ? "running…" : done ? "run again" : "▶ run buyer agent"}
+      {/* Footer buttons */}
+      <div className="lt2-foot">
+        <button className="lt2-btn-primary" disabled={running} onClick={start}>
+          {running ? "running…" : done ? "▶ run again" : "▶ run buyer agent"}
         </button>
-        {running && (
-          <button className="lt-btn" onClick={abort}>
-            stop
-          </button>
-        )}
-        {error && <span className="lt-err">{error}</span>}
+        {running && <button className="lt2-btn" onClick={abort}>stop</button>}
+        {error && <span className="lt2-err">{error}</span>}
       </div>
     </div>
   );

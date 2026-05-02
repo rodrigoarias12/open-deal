@@ -27,13 +27,14 @@ const PUBLIC_RESOLVER = "0xE99638b40E4Fff0129D56f03b55b6bbC4BBE49b5";
 
 const SUBNAMES = [
   "acme-cartoneria.openagents-treasury.eth",
+  "seller-acme.openagents-treasury.eth",
   "distri-norte-srl.openagents-treasury.eth",
   "papelera-del-sur.openagents-treasury.eth",
   "box-master.openagents-treasury.eth",
   "techsupply-mx.openagents-treasury.eth",
 ];
 
-const HOST = "agentic-erp-eth.vercel.app";
+const HOST = "open-deal.vercel.app";
 
 const ABI = [
   "function setText(bytes32 node, string key, string value) external",
