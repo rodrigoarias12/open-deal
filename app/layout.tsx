@@ -4,6 +4,11 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://open-deal.vercel.app"),
+  icons: {
+    icon: "/icon.png",
+    shortcut: "/icon.png",
+    apple: "/icon.png",
+  },
   title: "Open Deal — agents that run the books",
   description:
     "Open Deal: the onchain protocol for autonomous B2B trade. Two agents, ENS identities, onchain policy, audit anchor on 0G, USDC escrow on Sepolia. The framework Anthropic's Project Deal said doesn't exist yet.",
