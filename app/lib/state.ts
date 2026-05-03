@@ -43,14 +43,13 @@ export async function loadDashboardState(): Promise<DashboardState> {
       tempoUsdc: info.balance.tempo.amount,
     };
   } catch {
-    warnings.push("keeperhub wallet not provisioned (run `npx @keeperhub/wallet add`)");
+    /* keeperhub wallet is optional — silently fall through with null */
   }
 
   let policy: TreasuryPolicy;
   try {
     policy = await loadPolicy(env("ENS_NAME") ?? null);
-  } catch (e) {
-    warnings.push(`ENS policy load failed: ${(e as Error).message}`);
+  } catch {
     policy = {
       maxSwapEth: "0.01",
       minBufferEth: "0.05",
